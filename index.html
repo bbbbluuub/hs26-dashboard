@@ -238,6 +238,53 @@
         .img-drop { border: 2px dashed var(--border); border-radius: 8px; min-height: 80px; display: flex; align-items: center; justify-content: center; text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 6px; overflow: hidden; outline: none; }
         .img-drop:focus, .img-drop.over { border-color: var(--primary); background: #eff6ff; }
         .img-drop img { width: 100%; height: 100px; object-fit: cover; border-radius: 4px; }
+
+        /* MODUL HINZUFÜGEN (Kachel am Ende des Rasters) */
+        .add-tile { border: 2px dashed #cbd5e1; border-radius: 12px; background: transparent; color: #64748b; font: inherit; font-weight: 600; font-size: 0.95rem; min-height: 120px; cursor: pointer; transition: 0.2s; }
+        .add-tile:hover, .add-tile:focus-visible { border-color: var(--primary); color: var(--primary); background: #eff6ff; outline: none; }
+        .nav-ico { display: none; }
+        .pacing-banner { display: block; }
+
+        /* HANDY (Pixel) */
+        @media (max-width: 700px) {
+            body { padding: 10px 10px calc(78px + env(safe-area-inset-bottom, 0px)); }
+            header { padding: 12px 14px; gap: 10px; margin-bottom: 14px; }
+            .header-left { width: 100%; }
+            .header-left h1 { font-size: 1.15rem; gap: 8px; }
+            .semester-week-badge { font-size: 0.72rem; padding: 2px 8px; }
+            .nav-tabs { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; width: auto; gap: 0; z-index: 900; background: var(--card); border-top: 1px solid var(--border); box-shadow: 0 -2px 12px rgba(15,23,42,0.08); padding: 2px max(4px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(4px, env(safe-area-inset-left, 0px)); }
+            .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 0.72rem; padding: 7px 4px 9px; border-bottom: none; border-top: 3px solid transparent; }
+            .nav-btn.active { border-top-color: var(--primary); background: #eff6ff; }
+            .nav-ico { display: block; font-size: 1.25rem; line-height: 1.2; }
+            .header-controls { margin-top: 0; width: 100%; gap: 8px; flex-wrap: nowrap; }
+            .header-controls .btn-std { padding: 7px 10px; font-size: 0.85rem; white-space: nowrap; }
+            .header-controls .btn-mach-dies { font-size: 0.95rem; }
+            #sortBtn { display: none; }
+            .global-score-box { margin-left: auto; padding: 5px 10px; min-width: 0; }
+            .gs-val { font-size: 1.3rem; }
+            .gs-delta { font-size: 0.75rem; }
+            .gs-label { font-size: 0.56rem; }
+            .dashboard-grid { grid-template-columns: 1fr; gap: 14px; }
+            .add-tile { min-height: 64px; }
+            #toast { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+            .week-toolbar { padding: 10px; gap: 6px; margin-bottom: 10px; }
+            .week-title { font-size: 0.95rem; margin-left: 4px; }
+            .week-sub { margin-left: 4px; }
+            .week-stats { margin-left: 0; width: 100%; font-size: 0.8rem; }
+            .week-cal { padding: 6px 4px 6px 0; }
+            .week-layout { gap: 10px; }
+            .wk-head { padding: 5px 4px 6px; font-size: 0.75rem; }
+            .wk-time-label { font-size: 0.66rem; padding-right: 5px; }
+            .wk-task { padding: 3px 16px 3px 5px; font-size: 0.72rem; }
+            .bl-list { max-height: none; }
+            .modal-content { width: calc(100% - 24px); padding: 18px; max-height: calc(100vh - 40px); }
+            .add-bar { padding: 12px; gap: 8px; }
+            .add-bar .input-group { flex: 1 1 140px !important; min-width: 0; }
+            .hours-summary { gap: 10px; }
+            .hour-card { min-width: 0; flex: 1 1 100px; padding: 14px 8px; }
+            .hour-val { font-size: 1.6rem; }
+            h2 { font-size: 1.2rem; }
+        }
         /* MODALS */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; }
@@ -313,14 +360,14 @@
             <h1>🎓 Exam Dashboard HS26</h1>
             <span id="headerWeekBadge" class="semester-week-badge">Woche -- / --</span>
             <div class="nav-tabs">
-                <button class="nav-btn active" id="tab-dash" onclick="switchView('dash')">Dashboard</button>
-                <button class="nav-btn" id="tab-tasks" onclick="resetAndOpenTasks()">Aufgaben</button>
-                <button class="nav-btn" id="tab-stats" onclick="switchView('stats')">Statistik</button>
+                <button class="nav-btn active" id="tab-dash" onclick="switchView('dash')"><span class="nav-ico" aria-hidden="true">🎯</span>Dashboard</button>
+                <button class="nav-btn" id="tab-tasks" onclick="resetAndOpenTasks()"><span class="nav-ico" aria-hidden="true">📅</span>Aufgaben</button>
+                <button class="nav-btn" id="tab-stats" onclick="switchView('stats')"><span class="nav-ico" aria-hidden="true">📈</span>Statistik</button>
             </div>
         </div>
         <div class="header-controls">
             <button class="btn-std btn-mach-dies" onclick="openFocusModal()">Mach dies!</button>
-            <button class="btn-std" onclick="forceSort()">↻ Sortieren</button>
+            <button class="btn-std" id="sortBtn" onclick="forceSort()">↻ Sortieren</button>
             <button class="btn-std" id="syncBtn" onclick="openDataModal()">☁ Sync</button>
             <div class="global-score-box">
                 <div class="score-row">
@@ -333,35 +380,6 @@
     </header>
 
     <div id="view-dash" class="view-section active">
-        <div class="add-bar">
-            <div class="input-group" style="flex:1;">
-                <span class="input-label">Prüfungsname</span>
-                <input type="text" id="inp_subject" placeholder="z.B. Antrieb Fluidisch">
-            </div>
-
-            <div class="input-group" style="flex:0.6;">
-                <span class="input-label">Gruppe (Verbinden)</span>
-                <input type="text" id="inp_group" placeholder="z.B. Antriebstechnik">
-            </div>
-            
-            <div class="input-group" style="flex:0.3;">
-                <span class="input-label">Gesamt ECTS</span>
-                <input type="number" id="inp_total_ects" placeholder="4" min="1">
-            </div>
-
-            <div class="input-group" style="flex:0.3;">
-                <span class="input-label">Anteil %</span>
-                <input type="number" id="inp_weight" placeholder="50" min="1" max="100" value="100">
-            </div>
-
-            <div class="input-group" style="flex:0.4;">
-                <span class="input-label">Datum</span>
-                <input type="date" id="inp_date">
-            </div>
-
-
-            <button class="add-btn" onclick="addSubject()">+ Hinzufügen</button>
-        </div>
         <div id="gridArea" class="dashboard-grid"></div>
     </div>
 
@@ -629,6 +647,25 @@
             <button class="btn-std" onclick="doImportText()">⬆ Text importieren</button>
             <label class="btn-std" style="cursor:pointer;">📄 Datei importieren<input type="file" accept=".json,application/json" style="display:none" onchange="doImportFile(this)"></label>
         </div>
+    </div>
+</div>
+
+<div id="addOverlay" class="modal-overlay" onclick="closeAddModal(event)">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Modul hinzufügen</h2>
+            <button class="close-modal" onclick="closeAddModal(null, true)">&times;</button>
+        </div>
+        <div class="edit-form-grid">
+            <div class="edit-row"><label for="inp_subject">Prüfungsname</label><input type="text" id="inp_subject" placeholder="z.B. Antrieb Fluidisch"></div>
+            <div class="edit-row"><label for="inp_group">Gruppe (verbindet Module für die Berechnung, optional)</label><input type="text" id="inp_group" placeholder="z.B. Antriebstechnik"></div>
+            <div style="display:flex; gap:10px;">
+                <div class="edit-row" style="flex:1"><label for="inp_total_ects">Gesamt ECTS</label><input type="number" id="inp_total_ects" placeholder="4" min="1" inputmode="decimal"></div>
+                <div class="edit-row" style="flex:1"><label for="inp_weight">Anteil %</label><input type="number" id="inp_weight" min="1" max="100" value="100" inputmode="numeric"></div>
+            </div>
+            <div class="edit-row"><label for="inp_date">Prüfungsdatum</label><input type="date" id="inp_date"></div>
+        </div>
+        <button class="btn-std btn-mach-dies" style="width:100%; margin-top:20px; justify-content:center;" onclick="addSubject()">+ Hinzufügen</button>
     </div>
 </div>
 
@@ -1525,6 +1562,14 @@
         if(weightEl) weightEl.value = '100';
         if(imgEl) imgEl.value = '';
         saveData(); renderSorted(); 
+        closeAddModal(null, true);
+    }
+    function openAddModal() {
+        document.getElementById('addOverlay').classList.add('active');
+        setTimeout(() => document.getElementById('inp_subject').focus(), 50);
+    }
+    function closeAddModal(e, force = false) {
+        if (force || (e && e.target.classList.contains('modal-overlay'))) document.getElementById('addOverlay').classList.remove('active');
     }
     
     function deleteSubject(id) {
@@ -1592,8 +1637,9 @@
     }
 
     // --- TASK LOGIC (WOCHENKALENDER) ---
-    const CAL_START_HOUR = 7;   // erste Zeile 07:00
-    const CAL_END_HOUR = 22;    // exklusiv -> letzte Zeile 21:00
+    const CAL_BASE_START = 7, CAL_BASE_END = 22; // Standardbereich 07:00–22:00, erweitert sich bei früheren/späteren Terminen
+    let CAL_START_HOUR = CAL_BASE_START;
+    let CAL_END_HOUR = CAL_BASE_END;
     const SLOT_MIN = 30;        // Raster in Minuten
     const HOUR_PX = 48;         // Zeilenhöhe pro Stunde
     const DAY_NAMES = ['MO','DI','MI','DO','FR','SA','SO'];
@@ -1637,6 +1683,10 @@
     function visibleTasks() { return activeTaskFilter ? tasks.filter(t => t.subjectId === activeTaskFilter) : tasks; }
     function isScheduled(t) { return !!(t.date && t.time); }
 
+    let lastDayCount = null;
+    // Gleiche Grenze wie das CSS-Layout fürs Handy (unabhängig von zu breitem Inhalt)
+    const MOBILE_MQ = window.matchMedia('(max-width: 700px)');
+    function calDayCount() { return MOBILE_MQ.matches ? 3 : 7; }
     function shiftWeek(n) { weekOffset += n; renderTasks(); }
     function goToCurrentWeek() { weekOffset = 0; renderTasks(); }
 
@@ -1686,15 +1736,40 @@
         if (!grid) return;
         grid.style.setProperty('--hour-h', HOUR_PX + 'px');
 
-        const ws = getWeekStart(weekOffset);
-        const days = [...Array(7)].map((_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return d; });
+        // Handy: 3 Tage ab heute, sonst Mo–So
+        const nDays = calDayCount();
+        if (lastDayCount !== null && lastDayCount !== nDays) weekOffset = 0;
+        lastDayCount = nDays;
+        let ws;
+        if (nDays === 7) ws = getWeekStart(weekOffset);
+        else { ws = new Date(); ws.setHours(0, 0, 0, 0); ws.setDate(ws.getDate() + weekOffset * nDays); }
+        const days = [...Array(nDays)].map((_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return d; });
+        grid.style.gridTemplateColumns = nDays === 7 ? '' : `40px repeat(${nDays}, minmax(0, 1fr))`;
+        grid.style.minWidth = nDays === 7 ? '' : '0';
         const todayStr = fmtDate(new Date());
-        const rows = CAL_END_HOUR - CAL_START_HOUR;
-        const colH = rows * HOUR_PX;
         const vt = visibleTasks();
 
+        // Stundenbereich an früheste/späteste Einträge der sichtbaren Tage anpassen
+        let minH = CAL_BASE_START, maxH = CAL_BASE_END;
+        days.forEach(d => {
+            const ds = fmtDate(d);
+            vt.filter(t => isScheduled(t) && t.date === ds).forEach(t => {
+                const s = timeToMin(t.time);
+                minH = Math.min(minH, Math.floor(s / 60));
+                maxH = Math.max(maxH, Math.ceil((s + (t.duration || 1) * 60) / 60));
+            });
+            calEventsFor(ds).forEach(ev => {
+                minH = Math.min(minH, Math.floor(timeToMin(ev.start) / 60));
+                maxH = Math.max(maxH, Math.ceil(timeToMin(ev.end) / 60));
+            });
+        });
+        CAL_START_HOUR = Math.max(0, minH);
+        CAL_END_HOUR = Math.min(24, maxH);
+        const rows = CAL_END_HOUR - CAL_START_HOUR;
+        const colH = rows * HOUR_PX;
+
         // Toolbar
-        const we = days[6];
+        const we = days[days.length - 1];
         document.getElementById('weekTitle').innerText = `KW ${getISOWeek(ws)} · ${ws.getFullYear()}`;
         document.getElementById('weekRange').innerText = `${ws.getDate()}.${ws.getMonth()+1}. – ${we.getDate()}.${we.getMonth()+1}.${we.getFullYear()}`;
         const weekDates = days.map(fmtDate);
@@ -1709,7 +1784,7 @@
             const hrs = vt.filter(t => isScheduled(t) && t.date === ds).reduce((a, t) => a + (t.duration || 1), 0);
             const exams = subjects.filter(s => s.examDate === ds);
             html += `<div class="wk-head ${ds === todayStr ? 'today' : ''}">
-                ${DAY_NAMES[i]}<span class="wk-date">${d.getDate()}.${d.getMonth()+1}.</span>
+                ${DAY_NAMES[(d.getDay() + 6) % 7]}<span class="wk-date">${d.getDate()}.${d.getMonth()+1}.</span>
                 ${hrs ? `<div class="wk-hours">${fmtH(hrs)} geplant</div>` : ''}
                 ${exams.map(s => `<span class="wk-exam" title="Prüfung: ${esc(s.name)}">🎓 ${esc(s.name)}</span>`).join('')}
                 ${calAllDayFor(ds).map(ev => `<span class="wk-allday" data-ev="${calEventIndex(ev)}" style="border-color:${calColor(ev.src)}; background:${hexAlpha(calColor(ev.src), 0.12)};" title="${esc(ev.title)}">${esc(ev.title)}</span>`).join('')}
@@ -1977,7 +2052,27 @@
             renderTasks();
         });
 
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTaskModal(null, true); closeDataModal(null, true); } });
+        // Bildschirmbreite geändert (z. B. Handy gedreht): Ansicht neu aufbauen
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (calDayCount() !== lastDayCount && document.getElementById('view-tasks').classList.contains('active')) renderTasks(); }, 200);
+        });
+        // Wischen nach links/rechts blättert (Handy)
+        let swipe = null;
+        const calBox = grid.closest('.week-cal');
+        calBox.addEventListener('touchstart', e => {
+            if (e.touches.length !== 1 || e.target.closest('[data-resize]')) { swipe = null; return; }
+            swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, { passive: true });
+        calBox.addEventListener('touchend', e => {
+            if (!swipe || resizeState) { swipe = null; return; }
+            const dx = e.changedTouches[0].clientX - swipe.x, dy = e.changedTouches[0].clientY - swipe.y;
+            swipe = null;
+            if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) { suppressClickUntil = Date.now() + 400; shiftWeek(dx < 0 ? 1 : -1); }
+        }, { passive: true });
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTaskModal(null, true); closeDataModal(null, true); closeAddModal(null, true); } });
 
         // Jetzt-Linie aktuell halten
         setInterval(() => { if (document.getElementById('view-tasks').classList.contains('active') && !dragState) renderWeekGrid(); }, 60000);
@@ -2374,6 +2469,7 @@
             </div>`;
             grid.innerHTML += html;
         });
+        grid.innerHTML += '<button type="button" class="add-tile" onclick="openAddModal()">+ Modul hinzufügen</button>';
         
         logHistory(); 
     }
