@@ -1,8 +1,8 @@
 // Service Worker: App-Dateien für den Offline-Start zwischenspeichern.
 // Seite: zuerst Netz (immer aktuelle Version), bei fehlendem Netz der Zwischenspeicher.
 // GitHub-API-Aufrufe werden nie zwischengespeichert.
-const CACHE = 'hs26-v6';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'hs26-v7';
+const FILES = ['./', './index.html', './manifest.webmanifest?v=2', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
