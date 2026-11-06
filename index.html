@@ -264,8 +264,36 @@
             .gs-val { font-size: 1.3rem; }
             .gs-delta { font-size: 0.75rem; }
             .gs-label { font-size: 0.56rem; }
-            .dashboard-grid { grid-template-columns: 1fr; gap: 14px; }
-            .add-tile { min-height: 64px; }
+            /* Modulkacheln: zwei nebeneinander, kompakt */
+            .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .add-tile { min-height: 56px; grid-column: 1 / -1; }
+            .card { border-radius: 10px; }
+            .card.priority-1 { border-width: 2px; }
+            .card-image { height: 56px; }
+            .card-header { padding: 8px 8px 8px 6px; gap: 5px; }
+            .group-indicator { top: 8px; bottom: 8px; width: 3px; }
+            .header-top { padding-left: 4px; gap: 4px; }
+            .card-title { font-size: 0.92rem; max-width: none; flex: 1; min-width: 0; }
+            .card-actions { gap: 2px; }
+            .icon-btn { width: 20px; height: 20px; font-size: 1rem; }
+            .meta-badges { padding-left: 4px; gap: 4px; }
+            .ects-pill, .task-pill { font-size: 0.68rem; padding: 1px 5px; }
+            .part-pill, .group-pill { font-size: 0.62rem; padding: 1px 4px; }
+            .group-score { display: none; }
+            .date-row { margin-left: 4px; padding: 4px 6px; flex-wrap: wrap; gap: 2px 4px; }
+            .card-date-input { font-size: 0.72rem; width: auto; max-width: 100%; padding: 0; }
+            .days-badge { font-size: 0.66rem; padding: 1px 6px; }
+            .card-body { padding: 8px; gap: 6px; }
+            .tool-label { font-size: 0.6rem; margin-bottom: 3px; letter-spacing: 0.02em; }
+            .doc-circle { width: 24px; height: 24px; font-size: 0.65rem; }
+            .doc-status-text { font-size: 0.66rem; margin-top: 2px; }
+            .series-btn { padding: 4px 4px; font-size: 0.74rem; }
+            .card-footer { padding: 8px; }
+            .card-footer .tool-label { display: none; }
+            .slider-row { gap: 6px; margin-bottom: 4px; }
+            .slider-row span { font-size: 0.7rem !important; width: 30px !important; }
+            .footer-stats .prep-label { font-size: 0.75rem; }
+            .big-score { font-size: 1.1rem; }
             #toast { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
             .week-toolbar { padding: 10px; gap: 6px; margin-bottom: 10px; }
             .week-title { font-size: 0.95rem; margin-left: 4px; }
