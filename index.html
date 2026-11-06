@@ -192,6 +192,15 @@
         .wt-mod { font-size: 0.66rem; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .wt-check { position: absolute; top: 3px; right: 3px; width: 13px; height: 13px; border: 1.5px solid #64748b; border-radius: 50%; background: white; font-size: 0.6rem; line-height: 12px; text-align: center; color: white; cursor: pointer; }
         .wt-check.on { background: var(--success); border-color: var(--success); }
+        .wk-event { position: absolute; border-radius: 5px; border: 1px dashed; border-left-width: 4px; border-left-style: solid; padding: 3px 6px; font-size: 0.72rem; line-height: 1.2; overflow: hidden; box-sizing: border-box; color: #334155; z-index: 1; cursor: help; }
+        .we-title { font-weight: 600; overflow-wrap: anywhere; }
+        .wk-allday { display: block; font-size: 0.68rem; border: 1px solid; border-radius: 4px; padding: 1px 5px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #334155; font-weight: 500; cursor: help; }
+        .cal-legend { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; align-items: center; font-size: 0.78rem; }
+        .cal-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--border); background: white; cursor: pointer; color: #334155; font-weight: 600; font: inherit; font-size: 0.78rem; }
+        .cal-chip.off { opacity: 0.45; text-decoration: line-through; }
+        .cal-chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+        .cal-chip.err { border-color: #fca5a5; }
+        .cal-updated { color: #94a3b8; font-size: 0.72rem; }
         .wk-now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--danger); z-index: 3; pointer-events: none; }
         .wk-now::before { content: ''; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
 
@@ -353,6 +362,7 @@
                 <div class="week-sub" id="weekRange"></div>
             </div>
             <div class="week-stats" id="weekStats"></div>
+            <div id="calLegend" class="cal-legend"></div>
         </div>
         <div id="taskFilterBanner"></div>
         <div class="week-layout">
@@ -661,7 +671,7 @@
 
     // --- SICHERER BROWSER-SPEICHER ---
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-    function lsSet(k, v) { try { lsSet(k, v); } catch (e) {} }
+    function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
     function lsJson(k, fb) { try { return JSON.parse(lsGet(k)) || fb; } catch (e) { return fb; } }
     // --- UTILS ---
     function stringToColor(str) {
@@ -845,6 +855,7 @@
             }
             if (!done) throw new Error('Gleichzeitige Änderung konnte nicht zusammengeführt werden. Neuer Versuch folgt.');
             setStoreStatus('ok');
+            fetchCalendar();
         } catch (e) {
             setStoreStatus('error', (e && e.message) || String(e));
         } finally {
@@ -902,6 +913,34 @@
         if (st) { st.innerText = texts[state] || ''; st.style.color = state === 'error' ? 'var(--danger)' : ''; }
     }
 
+    // Zugangsdaten zusätzlich in IndexedDB sichern und dauerhaften Speicher anfordern,
+    // damit der Token nicht verloren geht, falls der Browser localStorage leert.
+    function idbOpen() {
+        return new Promise((res, rej) => {
+            const r = indexedDB.open('hs26', 1);
+            r.onupgradeneeded = () => r.result.createObjectStore('kv');
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+        });
+    }
+    async function idbSet(k, v) {
+        try {
+            const db = await idbOpen();
+            await new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+        } catch (e) {}
+    }
+    async function idbGet(k) {
+        try {
+            const db = await idbOpen();
+            return await new Promise(res => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(undefined); });
+        } catch (e) { return undefined; }
+    }
+    function persistSyncCfg() {
+        lsSet(SYNC_KEY, JSON.stringify(syncCfg));
+        idbSet('syncCfg', JSON.parse(JSON.stringify(syncCfg)));
+        try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+    }
+
     function saveSyncSettings() {
         syncCfg = {
             owner: document.getElementById('sy_owner').value.trim(),
@@ -910,7 +949,7 @@
             path: document.getElementById('sy_path').value.trim().replace(/^\/+/, '') || 'data/hs26.json',
             token: document.getElementById('sy_token').value.trim()
         };
-        lsSet(SYNC_KEY, JSON.stringify(syncCfg));
+        persistSyncCfg();
         remoteSha = null; lastSyncedJson = null;
         syncNow();
     }
@@ -919,14 +958,28 @@
             if (!ok) return;
             syncCfg.token = '';
             document.getElementById('sy_token').value = '';
-            lsSet(SYNC_KEY, JSON.stringify(syncCfg));
+            persistSyncCfg();
             setStoreStatus('off');
         });
     }
 
     function initStore() {
         setStoreStatus(syncCfg.token ? 'pending' : 'off');
-        syncNow();
+        if (syncCfg.token) {
+            persistSyncCfg(); // Sicherung in IndexedDB aktuell halten
+            syncNow();
+            fetchCalendar(true);
+        } else {
+            // localStorage leer? Zugangsdaten aus der Sicherung wiederherstellen
+            idbGet('syncCfg').then(c => {
+                if (c && c.token) {
+                    syncCfg = Object.assign({}, syncCfg, c);
+                    lsSet(SYNC_KEY, JSON.stringify(syncCfg));
+                    syncNow();
+                    fetchCalendar(true);
+                } else setStoreStatus('off');
+            });
+        }
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') syncNow();
             else if (pushTimer) syncNow(); // beim Wegwechseln ausstehende Änderungen sofort senden
@@ -1470,6 +1523,61 @@
         });
     }
 
+    // --- KALENDER: Stundenplan & Google aus data/kalender.json (vom GitHub-Workflow erstellt) ---
+    const CAL_KEY = 'examTrackerCalendarHS26', CAL_HIDE_KEY = 'examTrackerCalHiddenHS26';
+    let calData = lsJson(CAL_KEY, { events: [], sources: [] });
+    let calHidden = lsJson(CAL_HIDE_KEY, {});
+    let calLastFetch = 0, calSha = null;
+
+    function calColor(src) { const s = (calData.sources || []).find(x => x.id === src); return (s && s.color) || '#64748b'; }
+    function hexAlpha(hex, a) {
+        const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+        if (!m) return `rgba(100,116,139,${a})`;
+        const n = parseInt(m[1], 16);
+        return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+    }
+    function calEventIndex(ev) { return calData.events.indexOf(ev); }
+    function calEventsFor(ds) { return (calData.events || []).filter(ev => !ev.allDay && ev.date === ds && !calHidden[ev.src]); }
+    function calAllDayFor(ds) { return (calData.events || []).filter(ev => ev.allDay && ev.date <= ds && (ev.endDate || ev.date) >= ds && !calHidden[ev.src]); }
+    function showCalEvent(i) {
+        const ev = calData.events[i];
+        if (!ev) return;
+        const s = (calData.sources || []).find(x => x.id === ev.src);
+        const when = ev.allDay ? 'ganztägig' : `${ev.start}–${ev.end}`;
+        notify(`${ev.title} · ${when}${ev.location ? ' · ' + ev.location : ''}${s ? ' (' + s.name + ')' : ''}`);
+    }
+    function toggleCalSource(id) {
+        calHidden[id] = !calHidden[id];
+        lsSet(CAL_HIDE_KEY, JSON.stringify(calHidden));
+        renderWeekGrid();
+    }
+    function renderCalLegend() {
+        const el = document.getElementById('calLegend');
+        if (!el) return;
+        const srcs = (calData.sources || []).filter(s => s.ok || s.count > 0 || s.error !== 'Keine Adresse eingetragen');
+        if (!srcs.length) { el.innerHTML = ''; return; }
+        let upd = '';
+        if (calData.updated) { const d = new Date(calData.updated); upd = `<span class="cal-updated">Stand ${d.toLocaleDateString('de-CH')} ${d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</span>`; }
+        el.innerHTML = srcs.map(s => `<button type="button" class="cal-chip ${calHidden[s.id] ? 'off' : ''} ${s.ok ? '' : 'err'}" onclick="toggleCalSource('${esc(s.id)}')" title="${s.ok ? s.count + ' Termine – antippen zum Ein-/Ausblenden' : 'Fehler beim Abruf: ' + esc(s.error || '')}"><span class="dot" style="background:${esc(s.color)}"></span>${esc(s.name)}${s.ok ? '' : ' ⚠'}</button>`).join('') + upd;
+    }
+    async function fetchCalendar(force = false) {
+        if (!syncCfg.token) return;
+        if (!force && Date.now() - calLastFetch < 10 * 60000) return;
+        calLastFetch = Date.now();
+        try {
+            const base = `https://api.github.com/repos/${encodeURIComponent(syncCfg.owner)}/${encodeURIComponent(syncCfg.repo)}/contents/data/kalender.json`;
+            const res = await fetch(`${base}?ref=${encodeURIComponent(syncCfg.branch)}&t=${Date.now()}`, { cache: 'no-store', headers: ghHeaders(false) });
+            if (!res.ok) return;
+            const j = await res.json();
+            if (j.sha === calSha) return;
+            calSha = j.sha;
+            const text = j.content ? b64decode(j.content) : await (await fetch(j.download_url, { cache: 'no-store' })).text();
+            calData = JSON.parse(text);
+            lsSet(CAL_KEY, text);
+            scheduleRender();
+        } catch (e) { /* Kalender ist optional; beim nächsten Abgleich erneut */ }
+    }
+
     // --- TASK LOGIC (WOCHENKALENDER) ---
     const CAL_START_HOUR = 7;   // erste Zeile 07:00
     const CAL_END_HOUR = 20;    // exklusiv -> letzte Zeile 19:00
@@ -1534,11 +1642,14 @@
     }
 
     // Überlappende Aufgaben nebeneinander anordnen (Lanes je Cluster)
-    function layoutDay(dayTasks) {
+    function layoutDay(dayTasks, dayEvents = []) {
         const items = dayTasks.map(t => {
             const s = timeToMin(t.time);
             return { t, s, e: s + Math.round((t.duration || 1) * 60) };
-        }).sort((a, b) => a.s - b.s || b.e - a.e);
+        }).concat(dayEvents.map(ev => {
+            const s = timeToMin(ev.start);
+            return { ev, s, e: Math.max(s + 15, timeToMin(ev.end)) };
+        })).sort((a, b) => a.s - b.s || b.e - a.e);
         const clusters = []; let cur = [], curEnd = -1;
         items.forEach(it => {
             if (cur.length && it.s >= curEnd) { clusters.push(cur); cur = []; curEnd = -1; }
@@ -1588,6 +1699,7 @@
                 ${DAY_NAMES[i]}<span class="wk-date">${d.getDate()}.${d.getMonth()+1}.</span>
                 ${hrs ? `<div class="wk-hours">${fmtH(hrs)} geplant</div>` : ''}
                 ${exams.map(s => `<span class="wk-exam" title="Prüfung: ${esc(s.name)}">🎓 ${esc(s.name)}</span>`).join('')}
+                ${calAllDayFor(ds).map(ev => `<span class="wk-allday" data-ev="${calEventIndex(ev)}" style="border-color:${calColor(ev.src)}; background:${hexAlpha(calColor(ev.src), 0.12)};" title="${esc(ev.title)}">${esc(ev.title)}</span>`).join('')}
             </div>`;
         });
 
@@ -1604,15 +1716,26 @@
             for (let r = 0; r < rows; r++) col += `<div class="wk-cell ${r % 2 ? 'alt' : ''}"></div>`;
             col += '<div class="wk-ghost"></div>';
 
-            layoutDay(vt.filter(t => isScheduled(t) && t.date === ds)).forEach(it => {
-                const t = it.t, c = getTaskColors(t);
+            layoutDay(vt.filter(t => isScheduled(t) && t.date === ds), calEventsFor(ds)).forEach(it => {
                 let top = (it.s - CAL_START_HOUR * 60) / 60 * HOUR_PX;
                 top = Math.min(Math.max(0, top), colH - 14);
                 const height = Math.max(14, Math.min((it.e - it.s) / 60 * HOUR_PX - 2, colH - top));
+                const pos = `top:${top}px; height:${height}px; left:calc(${it.lane * 100 / it.lanes}% + 2px); width:calc(${100 / it.lanes}% - 4px);`;
+                if (it.ev) {
+                    const ev = it.ev, col0 = calColor(ev.src);
+                    col += `<div class="wk-event" data-ev="${calEventIndex(ev)}" style="${pos} border-color:${col0}; background:${hexAlpha(col0, 0.12)};"
+                        title="${esc(ev.title)} (${ev.start}–${ev.end})${ev.location ? '\n' + esc(ev.location) : ''}">
+                        ${height < 40 ? '' : `<div class="wt-time">${ev.start}–${ev.end}</div>`}
+                        <div class="we-title">${esc(ev.title)}</div>
+                        ${height >= 58 && ev.location ? `<div class="wt-mod">${esc(ev.location)}</div>` : ''}
+                    </div>`;
+                    return;
+                }
+                const t = it.t, c = getTaskColors(t);
                 const subName = t.subjectId ? getSubjectName(t.subjectId) : 'Allgemein';
                 const compact = height < 40;
                 col += `<div class="wk-task ${t.done ? 'done' : ''}" draggable="true" data-id="${t.id}"
-                    style="top:${top}px; height:${height}px; left:calc(${it.lane * 100 / it.lanes}% + 2px); width:calc(${100 / it.lanes}% - 4px); background:${c.bg}; border-left-color:${c.border};"
+                    style="${pos} background:${c.bg}; border-left-color:${c.border};"
                     title="${esc(t.text)} (${t.time}–${minToTime(it.e)})${t.note ? '\n' + esc(t.note) : ''}">
                     <span class="wt-check ${t.done ? 'on' : ''}" data-check="${t.id}">✓</span>
                     ${compact ? '' : `<div class="wt-time">${t.time}–${minToTime(it.e)}</div>`}
@@ -1630,6 +1753,7 @@
 
         grid.innerHTML = html;
         lastGhost = null;
+        renderCalLegend();
     }
 
     function renderBacklog() {
@@ -1690,6 +1814,8 @@
         grid.addEventListener('click', e => {
             const chk = e.target.closest('[data-check]');
             if (chk) { toggleTask(parseInt(chk.dataset.check)); return; }
+            const evEl = e.target.closest('[data-ev]');
+            if (evEl) { showCalEvent(parseInt(evEl.dataset.ev)); return; }
             const block = e.target.closest('.wk-task');
             if (block) { openTaskModal(parseInt(block.dataset.id)); return; }
             const col = e.target.closest('.wk-col');
@@ -1706,7 +1832,7 @@
         grid.addEventListener('mousemove', e => {
             if (dragState) return;
             const col = e.target.closest('.wk-col');
-            if (!col || e.target.closest('.wk-task')) { hideGhost(); return; }
+            if (!col || e.target.closest('.wk-task, .wk-event')) { hideGhost(); return; }
             const m = yToMin(col, e.clientY);
             showGhost(col, m, SLOT_MIN, '+ ' + minToTime(m));
         });
