@@ -313,6 +313,26 @@
             .hour-val { font-size: 1.6rem; }
             h2 { font-size: 1.2rem; }
         }
+        /* MODUL-ÜBERSICHT ALS KARTEN (Handy) */
+        .stats-cards { display: none; }
+        @media (max-width: 700px) {
+            .stats-table-container { display: none; }
+            .stats-cards { display: flex; flex-direction: column; gap: 8px; }
+            .sc-card { background: white; border: 1px solid var(--border); border-left: 4px solid; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+            .sc-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+            .sc-name { font-weight: 700; font-size: 1rem; min-width: 0; overflow-wrap: anywhere; }
+            .sc-score { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+            .sc-bar { flex: none; height: 6px; width: 100%; }
+            .sc-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+            .sc-facts > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-items: flex-start; }
+            .sc-k { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; font-weight: 600; }
+            .sc-v { font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+            .sc-v.hpw-val { padding: 1px 6px; }
+            .sc-facts .days-badge { margin-top: 1px; }
+            .sc-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+            .sc-foot:empty { display: none; }
+            .sc-details { width: 100%; }
+        }
         /* MODALS */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; }
@@ -502,6 +522,7 @@
                     </tbody>
             </table>
         </div>
+        <div id="statsCards" class="stats-cards"></div>
     </div>
 </div>
 
@@ -1423,6 +1444,8 @@
         const tbody = document.getElementById('statsTableBody');
         if (!tbody) return;
         tbody.innerHTML = '';
+        const cardsEl = document.getElementById('statsCards');
+        let cardsHtml = '';
 
         const timeInfo = getSemesterTimeProgress();
 
@@ -1436,6 +1459,7 @@
 
         if (sorted.length === 0) {
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 30px; color:#64748b;">Keine Module erfasst.</td></tr>';
+            if (cardsEl) cardsEl.innerHTML = '<div class="empty-state">Keine Module erfasst.</div>';
             return;
         }
 
@@ -1542,7 +1566,26 @@
                 </td>
             `;
             tbody.appendChild(tr);
+
+            // Kartenansicht fürs Handy
+            const dateTxt = sub.examDate ? (() => { const [y, m, d] = sub.examDate.split('-'); return `${d}.${m}.${y}`; })() : 'kein Datum';
+            cardsHtml += `
+            <div class="sc-card" style="border-left-color:${sub.group ? stringToColor(sub.group) : 'var(--border)'}">
+                <div class="sc-top">
+                    <div class="sc-name">${esc(sub.name)}</div>
+                    <div class="sc-score" style="color:${rColor}">${rPercent}%</div>
+                </div>
+                <div class="prog-track sc-bar"><div class="prog-fill" style="width:${rPercent}%; background-color:${rColor};"></div></div>
+                <div class="sc-facts">
+                    <div><span class="sc-k">Prüfung</span><span class="sc-v">${dateTxt}</span>${getDaysBadgeHtml(days)}</div>
+                    <div><span class="sc-k">Pro Woche</span><span class="sc-v ${hpwText !== '-' && hpwText !== '0h' ? 'hpw-val' : ''}">${hpwText}</span></div>
+                    <div><span class="sc-k">Serien-Pacing</span><span class="sc-v">${diffHtml}</span></div>
+                    <div><span class="sc-k">Aufwand</span><span class="sc-v">${effEcts} ECTS · ${moduleHours}h</span></div>
+                </div>
+                <div class="sc-foot">${sub.group ? groupHtml : ''}${examBadge}${detailsHtml ? `<div class="sc-details">${detailsHtml}</div>` : ''}</div>
+            </div>`;
         });
+        if (cardsEl) cardsEl.innerHTML = cardsHtml;
     }
 
     // --- SUBJECT LOGIC ---
