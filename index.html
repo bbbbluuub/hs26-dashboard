@@ -191,6 +191,19 @@
         .wt-title { font-weight: 700; overflow-wrap: anywhere; }
         .wt-mod { font-size: 0.66rem; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .wt-check { position: absolute; top: 3px; right: 3px; width: 13px; height: 13px; border: 1.5px solid #64748b; border-radius: 50%; background: white; font-size: 0.6rem; line-height: 12px; text-align: center; color: white; cursor: pointer; }
+        .wt-resize { position: absolute; left: 0; right: 0; height: 8px; cursor: ns-resize; z-index: 3; touch-action: none; }
+        .wt-resize.top { top: -2px; }
+        .wt-resize.bottom { bottom: -2px; }
+        .wt-resize.bottom::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 20px; height: 3px; margin-left: -10px; border-radius: 2px; background: rgba(15,23,42,0.3); opacity: 0; transition: opacity 0.15s; }
+        .wk-task:hover .wt-resize.bottom::after, .wk-task.resizing .wt-resize.bottom::after { opacity: 1; }
+        .wk-task.resizing { z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .wt-live { position: absolute; right: 4px; bottom: 4px; background: var(--text); color: white; font-size: 0.68rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+        @media (pointer: coarse) {
+            .wt-resize { height: 16px; }
+            .wt-resize.top { top: -6px; }
+            .wt-resize.bottom { bottom: -6px; }
+            .wt-resize.bottom::after { opacity: 1; bottom: 8px; }
+        }
         .wt-check.on { background: var(--success); border-color: var(--success); }
         .wk-event { position: absolute; border-radius: 5px; border: 1px dashed; border-left-width: 4px; border-left-style: solid; padding: 3px 6px; font-size: 0.72rem; line-height: 1.2; overflow: hidden; box-sizing: border-box; color: #334155; z-index: 1; cursor: help; }
         .we-title { font-weight: 600; overflow-wrap: anywhere; }
@@ -1738,6 +1751,8 @@
                     style="${pos} background:${c.bg}; border-left-color:${c.border};"
                     title="${esc(t.text)} (${t.time}–${minToTime(it.e)})${t.note ? '\n' + esc(t.note) : ''}">
                     <span class="wt-check ${t.done ? 'on' : ''}" data-check="${t.id}">✓</span>
+                    ${height >= 30 ? '<div class="wt-resize top" data-resize="top" title="Start verschieben"></div>' : ''}
+                    <div class="wt-resize bottom" data-resize="bottom" title="Verlängern oder kürzen"></div>
                     ${compact ? '' : `<div class="wt-time">${t.time}–${minToTime(it.e)}</div>`}
                     <div class="wt-title">${esc(t.text)}</div>
                     ${height >= 58 ? `<div class="wt-mod">${esc(subName)}</div>` : ''}
@@ -1811,7 +1826,71 @@
         for (let h = 0.5; h <= 6; h += 0.5) durSel.innerHTML += `<option value="${h}">${fmtH(h)}</option>`;
 
         // Klick: Aufgabe öffnen / abhaken / neue Aufgabe im Slot
+        // Dauer per Ziehen ändern: unterer Griff = Ende, oberer Griff = Start (Raster 15 min)
+        const RESIZE_SNAP = 15;
+        let resizeState = null, suppressClickUntil = 0;
+        grid.addEventListener('pointerdown', e => {
+            const h = e.target.closest('[data-resize]');
+            if (!h || (e.pointerType === 'mouse' && e.button !== 0)) return;
+            const block = h.closest('.wk-task');
+            const t = tasks.find(x => x.id === parseInt(block.dataset.id));
+            if (!t) return;
+            e.preventDefault(); e.stopPropagation();
+            const s = timeToMin(t.time);
+            resizeState = { t, block, col: block.closest('.wk-col'), edge: h.dataset.resize, s, e: s + Math.round((t.duration || 1) * 60), id: e.pointerId };
+            resizeState.s0 = resizeState.s; resizeState.e0 = resizeState.e;
+            resizeState.y0 = e.clientY; resizeState.moved = false;
+            block.draggable = false;
+            block.classList.add('resizing');
+            const live = document.createElement('div');
+            live.className = 'wt-live';
+            live.innerText = `${minToTime(resizeState.s)}–${minToTime(resizeState.e)}`;
+            block.appendChild(live);
+            resizeState.live = live;
+            hideGhost();
+            try { h.setPointerCapture(e.pointerId); } catch (err) {}
+        });
+        grid.addEventListener('pointermove', e => {
+            if (!resizeState || e.pointerId !== resizeState.id) return;
+            e.preventDefault();
+            if (!resizeState.moved && Math.abs(e.clientY - resizeState.y0) < 4) return; // noch kein Ziehen
+            resizeState.moved = true;
+            const r = resizeState.col.getBoundingClientRect();
+            let m = CAL_START_HOUR * 60 + (e.clientY - r.top) / HOUR_PX * 60;
+            m = Math.round(m / RESIZE_SNAP) * RESIZE_SNAP;
+            if (resizeState.edge === 'bottom') resizeState.e = Math.max(resizeState.s + RESIZE_SNAP, Math.min(m, CAL_END_HOUR * 60));
+            else resizeState.s = Math.min(resizeState.e - RESIZE_SNAP, Math.max(m, CAL_START_HOUR * 60));
+            const b = resizeState.block;
+            b.style.top = ((resizeState.s - CAL_START_HOUR * 60) / 60 * HOUR_PX) + 'px';
+            b.style.height = ((resizeState.e - resizeState.s) / 60 * HOUR_PX - 2) + 'px';
+            const label = `${minToTime(resizeState.s)}–${minToTime(resizeState.e)}`;
+            resizeState.live.innerText = label;
+            const tm = b.querySelector('.wt-time');
+            if (tm) tm.innerText = label;
+        });
+        const endResize = (e, cancel) => {
+            if (!resizeState || (e && e.pointerId !== resizeState.id)) return;
+            const st = resizeState;
+            resizeState = null;
+            if (!st.moved) { // nur angetippt: Aufgabe normal öffnen lassen
+                st.block.classList.remove('resizing');
+                st.block.draggable = true;
+                st.live.remove();
+                return;
+            }
+            suppressClickUntil = Date.now() + 400;
+            if (!cancel && (st.s !== st.s0 || st.e !== st.e0)) {
+                st.t.time = minToTime(st.s);
+                st.t.duration = (st.e - st.s) / 60;
+                saveData();
+            }
+            renderTasks();
+        };
+        grid.addEventListener('pointerup', e => endResize(e, false));
+        grid.addEventListener('pointercancel', e => endResize(e, true));
+
         grid.addEventListener('click', e => {
+            if (Date.now() < suppressClickUntil) return;
             const chk = e.target.closest('[data-check]');
             if (chk) { toggleTask(parseInt(chk.dataset.check)); return; }
             const evEl = e.target.closest('[data-ev]');
@@ -1830,7 +1909,7 @@
 
         // Hover-Vorschau des Slots
         grid.addEventListener('mousemove', e => {
-            if (dragState) return;
+            if (dragState || resizeState) return;
             const col = e.target.closest('.wk-col');
             if (!col || e.target.closest('.wk-task, .wk-event')) { hideGhost(); return; }
             const m = yToMin(col, e.clientY);
