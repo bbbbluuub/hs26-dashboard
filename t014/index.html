@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#111111">
+<title>T-014 Zeitmarken</title>
+<style>
+  :root {
+    --bg: #111; --fg: #f4f4f4; --mut: #9a9a9a; --card: #1d1d1d; --line: #333;
+    --go: #1f9d55; --q: #c026d3; --end: #d97706; --bad: #dc2626; --base: #2563eb;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 12px 16px 24px; max-width: 640px; margin: 0 auto; user-select: none; }
+  h1 { font-size: 15px; font-weight: 600; color: var(--mut); margin: 0 0 6px; display: flex; justify-content: space-between; }
+  .clock { font: 600 30px/1.1 ui-monospace, "Roboto Mono", monospace; letter-spacing: .5px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
+  .row { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .big { font-size: 34px; font-weight: 700; }
+  .lbl { color: var(--mut); font-size: 13px; }
+  .dir { font-size: 22px; font-weight: 600; }
+  .timer { font: 600 22px ui-monospace, "Roboto Mono", monospace; }
+  .hint { font-size: 17px; margin-top: 6px; }
+  button { font: inherit; color: #fff; border: 0; border-radius: 14px; cursor: pointer; }
+  button:disabled { opacity: .35; }
+  #main { width: 100%; min-height: 34vh; font-size: 34px; font-weight: 800; margin: 8px 0;
+    box-shadow: 0 4px 0 rgba(0,0,0,.4); }
+  #main small { display: block; font-size: 17px; font-weight: 500; margin-top: 6px; opacity: .9; }
+  #main:active { transform: translateY(3px); box-shadow: none; }
+  .s-start { background: var(--go); } .s-q { background: var(--q); } .s-end { background: var(--end); }
+  .s-base { background: var(--base); } .s-done { background: #444; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tools button, .exp button, .set button { background: #2a2a2a; border: 1px solid var(--line); padding: 14px 10px; font-size: 16px; }
+  .tools .bad { background: #3a1414; border-color: #7f1d1d; }
+  .reasons { display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .reasons.on { display: grid; }
+  .reasons button { background: #4a1515; padding: 12px 6px; font-size: 15px; }
+  .exp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .inv { color: #f87171; text-decoration: line-through; }
+  .ok { color: #86efac; }
+  details summary { color: var(--mut); padding: 6px 0; font-size: 14px; }
+  label { display: block; margin: 8px 0 4px; color: var(--mut); font-size: 13px; }
+  input, textarea { width: 100%; background: #0b0b0b; color: var(--fg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px; font: 15px ui-monospace, monospace; }
+  textarea { height: 140px; user-select: text; }
+  .flash { animation: fl .35s; }
+  @keyframes fl { from { filter: brightness(2); } to { filter: none; } }
+  .warn { color: #fbbf24; font-size: 14px; }
+
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .tabs button { background: #222; border: 1px solid var(--line); padding: 10px; font-size: 16px; font-weight: 600; }
+  .tabs button.on { background: #f4f4f4; color: #111; }
+  #tabMap[hidden], #tabMarks[hidden] { display: none; }
+  #map { position: relative; height: 46vh; border-radius: 14px; overflow: hidden; background: #2b2b2b;
+    touch-action: none; border: 1px solid var(--line); }
+  #tiles, #ovl { position: absolute; inset: 0; }
+  #tiles img { position: absolute; left: 0; top: 0; transform-origin: 0 0; user-select: none; -webkit-user-drag: none; }
+  #ovl { pointer-events: none; width: 100%; height: 100%; }
+  #mapMode { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,.75); color: #fff; padding: 6px 10px;
+    border-radius: 10px; font-size: 14px; display: none; }
+  #attr { position: absolute; right: 6px; bottom: 4px; font-size: 11px; color: #111; background: rgba(255,255,255,.75);
+    padding: 1px 5px; border-radius: 6px; }
+  .mgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .mgrid button { background: #2a2a2a; border: 1px solid var(--line); padding: 12px 6px; font-size: 14px; }
+  .mgrid button.on { background: #1e3a8a; border-color: #3b82f6; }
+  .rot { display: grid; grid-template-columns: auto 1fr auto auto auto auto; gap: 6px; align-items: center; margin-top: 10px; }
+  .rot button { background: #2a2a2a; border: 1px solid var(--line); padding: 10px 8px; font-size: 14px; }
+  input[type=range] { width: 100%; padding: 0; }
+  #main2 { width: 100%; min-height: 15vh; font-size: 28px; font-weight: 800; margin: 8px 0 6px; }
+  #main2 small { display: block; font-size: 15px; font-weight: 500; margin-top: 4px; opacity: .9; }
+  #main2:active { transform: translateY(3px); }
+  #mPass { font-size: 20px; font-weight: 700; margin: 0 0 6px; display: flex; justify-content: space-between; }
+  #mPass .t { font: 600 18px ui-monospace, "Roboto Mono", monospace; }
+  .gps { font: 15px ui-monospace, "Roboto Mono", monospace; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1><span>T-014 Rasterversuch · Zeitmarken</span><span id="wl" class="lbl"></span></h1>
+<div class="clock" id="clock">--:--:--.---</div>
+<div class="gps lbl" id="gpsLine">GPS: –</div>
+
+<div class="tabs" style="margin-top:8px">
+  <button id="tbMarks" class="on">Marken</button>
+  <button id="tbMap">Karte</button>
+</div>
+
+<section id="tabMap" hidden>
+  <div id="mPass"><span id="mPassT"></span><span class="t" id="mTmr"></span></div>
+  <div id="map">
+    <div id="tiles"></div>
+    <svg id="ovl"></svg>
+    <div id="mapMode"></div>
+    <div id="attr">© swisstopo</div>
+  </div>
+  <button id="main2" class="s-base">–</button>
+  <div class="tools">
+    <button id="undo2">Rückgängig</button>
+    <button id="invalid2" class="bad">Passage ungültig</button>
+  </div>
+  <div class="reasons" id="reasons2"></div>
+  <details class="card" id="mSetup">
+  <summary>Raster einrichten</summary>
+  <div class="mgrid">
+    <button id="mSet">Sniffer setzen</button>
+    <button id="mSetGps">Sniffer = GPS</button>
+    <button id="mDir">x-Richtung</button>
+    <button id="mLayer">Luftbild</button>
+    <button id="mMe">Auf mich</button>
+    <button id="mGrid">Auf Raster</button>
+  </div>
+  <div class="rot">
+    <span class="lbl">Drehung</span>
+    <input type="range" id="mRot" min="0" max="359.5" step="0.5" value="90">
+    <button data-d="-5">−5</button><button data-d="-1">−1</button><button data-d="1">+1</button><button data-d="5">+5</button>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="lbl" id="mInfo"></div>
+    <label for="mLv">Sniffer-Mitte LV95 (E, N) eingeben</label>
+    <div class="row" style="flex-wrap:nowrap">
+      <input id="mLv" placeholder="2704500.0, 1231800.0" inputmode="decimal">
+      <button id="mLvSet" style="background:#2a2a2a;border:1px solid var(--line);padding:10px 14px">Setzen</button>
+    </div>
+    <div class="mgrid" style="grid-template-columns:1fr 1fr">
+      <button id="mLock">Raster fixieren</button>
+      <button id="mPoles">Pfahlliste (CSV)</button>
+    </div>
+    <p class="lbl" id="mHint">Karte braucht mobile Daten. GPS funktioniert auch ohne Netz.</p>
+  </div>
+  </details>
+</section>
+
+<section id="tabMarks">
+
+<div class="card">
+  <div class="row"><span class="lbl">Schritt</span><span id="phase" class="lbl"></span></div>
+  <div class="row"><span class="big" id="pnr">–</span><span class="big" id="py"></span></div>
+  <div class="dir" id="pdir"></div>
+  <div class="row" style="margin-top:6px">
+    <span class="timer" id="tmr">0,0 s</span><span class="lbl" id="tsoll"></span>
+  </div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<button id="main" class="s-base">–</button>
+
+<div class="tools">
+  <button id="undo">Rückgängig</button>
+  <button id="invalid" class="bad">Passage ungültig</button>
+</div>
+<div class="reasons" id="reasons">
+  <div id="invFor" class="lbl" style="grid-column:1/-1"></div>
+  <button data-r="fremde Person">Fremde Person</button>
+  <button data-r="Fahrzeug">Fahrzeug</button>
+  <button data-r="Tempo">Tempo falsch</button>
+  <button data-r="Marke falsch">Marke falsch</button>
+  <button data-r="Gerät">Gerät ausgefallen</button>
+  <button data-r="anderes">Anderes</button>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <span class="lbl">Passagen</span><span class="lbl" id="count"></span>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>y</th><th>Ri.</th><th>t_Q</th><th>Dauer</th><th>v</th><th></th></tr></thead>
+    <tbody id="tbl"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="lbl" style="margin-bottom:8px">Export (CSV, Lokalzeit)</div>
+  <div class="exp">
+    <button id="exDreh">Drehbuch</button>
+    <button id="exSoll">Soll</button>
+    <button id="exLog">Protokoll</button>
+    <button id="exSpur">GPS-Spur</button>
+    <button id="exShow">Als Text zeigen</button>
+  </div>
+  <textarea id="txt" style="display:none; margin-top:10px" readonly></textarea>
+</div>
+
+<details class="card">
+  <summary>Einstellungen und neuer Versuch</summary>
+  <div class="set">
+    <label for="cName">Bezeichnung</label>
+    <input id="cName" value="T-014">
+    <label for="cLines">Linien y in m, in Gehreihenfolge</label>
+    <input id="cLines" value="30, 20, 15, 10, 7.5, 5, 3, 2, 1, -1, -2, -3, -5, -7.5, -10, -15, -20, -30">
+    <label for="cLen">Linienlänge in m · Soll-Tempo in m/s</label>
+    <div class="row" style="flex-wrap:nowrap">
+      <input id="cLen" value="80" inputmode="decimal">
+      <input id="cV" value="1.0" inputmode="decimal">
+    </div>
+    <label for="cX">Start der ersten Passage bei x =</label>
+    <input id="cX" value="+40" inputmode="decimal">
+    <div style="height:10px"></div>
+    <button id="reset" style="width:100%">Neuer Versuch (löscht die Marken)</button>
+    <p class="warn" id="resetHint"></p>
+    <p class="lbl">Die Marken werden nach jedem Tippen im Browser gespeichert und überstehen ein Neuladen. Vor dem Löschen exportieren.</p>
+  </div>
+</details>
+</section>
+
+<script>
+"use strict";
+// ------------------------------------------------------------ Zustand
+const KEY = "t014_marken_v1";
+let S = load();
+if (!S || !["pass", "done"].includes(S.phase)) S = fresh();
+
+function fresh() {
+  const c = readCfg();
+  return { cfg: c, events: [], passes: [], phase: "pass", cur: null, side: Math.sign(c.x0) || 1, created: Date.now() };
+}
+function readCfg() {
+  const num = s => parseFloat(String(s).replace(",", "."));
+  const lines = document.getElementById("cLines").value.split(/[;,\s]+/).filter(Boolean)
+    .map(num).filter(v => !isNaN(v));
+  return { name: document.getElementById("cName").value.trim() || "T-014", lines,
+           len: num(document.getElementById("cLen").value) || 80,
+           v: num(document.getElementById("cV").value) || 1.0,
+           x0: num(document.getElementById("cX").value) || 40 };
+}
+function load() { try { const t = localStorage.getItem(KEY); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+// Phasen: pass -> done
+// Passage-Zustand: cur = {nr, y, dir, tS, tQ, tE}
+function queue() {               // geplante Linien inkl. Wiederholungen
+  return S.cfg.lines.map(y => ({ y, rep: false })).concat(S.repeats || []);
+}
+function nextLine() {
+  const done = S.passes.length + (S.cur ? 1 : 0);
+  const q = queue();
+  return done < q.length ? q[done] : null;
+}
+
+// ------------------------------------------------------------ Zeit
+const pad = (n, w = 2) => String(n).padStart(w, "0");
+function iso(ms) {
+  const d = new Date(ms);
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" +
+    pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "." + pad(d.getMilliseconds(), 3);
+}
+const hms = ms => iso(ms).slice(11, 23);
+const fmt1 = x => x.toFixed(1).replace(".", ",");
+const xlab = sgn => (sgn > 0 ? "+" : "−") + S.cfg.len / 2 + " m";
+const ylab = y => (y > 0 ? "+" : "") + String(y).replace(".", ",");
+
+// ------------------------------------------------------------ Aktionen
+let lastTap = 0;
+function mark() {
+  const now = Date.now();
+  if (now - lastTap < 800) return;           // Doppeltippen abfangen
+  lastTap = now;
+  const ph = S.phase;
+  if (ph === "pass") {
+    if (!S.cur) {
+      const L = nextLine();
+      if (!L) { log("Versuch_Ende", now); S.phase = "done"; }
+      else {
+        const dir = S.side > 0 ? -1 : +1;     // von +x nach -x oder umgekehrt
+        S.cur = { nr: S.passes.length + 1, y: L.y, dir, rep: !!L.rep, tS: now, tQ: null, tE: null };
+        log("t_S", now, S.cur);
+      }
+    } else if (S.cur.tQ === null) { S.cur.tQ = now; log("t_Q", now, S.cur); }
+    else {
+      const prev = S.cur;
+      prev.tE = now;
+      if (prev.valid !== false) prev.valid = true;
+      S.passes.push(prev); S.side = -S.side; S.cur = null;
+      log("t_E", now, prev);                 // naechste Passage beginnt erst mit eigener Startmarke
+    }
+  }
+  save(); buzz(); render(true);
+}
+function log(what, t, p) {
+  S.events.push({ t, what, nr: p ? p.nr : "", y: p ? p.y : "" });
+}
+function undo() {
+  const e = S.events.pop();
+  if (!e) return;
+  const w = e.what;
+  if (w === "t_S") S.cur = null;
+  else if (w === "t_Q") S.cur.tQ = null;
+  else if (w === "t_E_t_S") { S.cur = S.passes.pop(); S.cur.tE = null; if (S.cur.valid === true) delete S.cur.valid; S.side = -S.side; }
+  else if (w === "t_E") { S.cur = S.passes.pop(); S.cur.tE = null; if (S.cur.valid === true) delete S.cur.valid; S.side = -S.side; }
+  else if (w === "Versuch_Ende") S.phase = "pass";
+  else if (w === "ungueltig") {
+    const p = S.passes.find(x => x.nr === e.nr) || (S.cur && S.cur.nr === e.nr ? S.cur : null);
+    if (p) { if (p.tE) p.valid = true; else delete p.valid; delete p.reason; }
+    if (S.repeats && S.repeats.length) S.repeats.pop();
+  }
+  save(); buzz(30); render(true);
+}
+function invalidate(reason) {
+  // laufende Passage nur, wenn ihre Querlinie schon markiert ist; sonst die zuletzt beendete
+  const p = invTarget();
+  document.getElementById("reasons").classList.remove("on");
+  document.getElementById("reasons2").classList.remove("on");
+  if (!p || p.valid === false) return;
+  p.valid = false; p.reason = reason;
+  S.repeats = S.repeats || [];
+  S.repeats.push({ y: p.y, rep: true });
+  S.events.push({ t: Date.now(), what: "ungueltig", nr: p.nr, y: p.y, reason });
+  save(); buzz(200); render(true);
+}
+function invTarget() {
+  if (S.cur && (S.cur.tQ !== null || !S.passes.length)) return S.cur;
+  return S.passes[S.passes.length - 1] || null;
+}
+function nextAfter() {               // Linie nach der laufenden Passage
+  const q = queue(), i = S.passes.length + 1;
+  return i < q.length ? q[i] : null;
+}
+function buzz(ms = 60) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+
+// ------------------------------------------------------------ Anzeige
+const $ = id => document.getElementById(id);
+function render(flash) {
+  const b = $("main"), ph = S.phase;
+  const L = nextLine();
+  let cls = "s-base", txt = "", sub = "", hint = "", phase = "";
+  $("pnr").textContent = ""; $("py").textContent = ""; $("pdir").textContent = "";
+  if (ph === "pass") {
+    if (S.cur) {
+      const c = S.cur;
+      phase = "Passage läuft"; showPass(c.nr, c.y, c.dir, c.rep);
+      if (c.tQ === null) { cls = "s-q"; txt = "Querlinie"; sub = "x = 0 m, y = " + ylab(c.y) + " m"; }
+      else {
+        cls = "s-end";
+        const N = nextAfter();
+        txt = "Ende P" + pad(c.nr);
+        sub = "x = " + xlab(c.dir) + ", y = " + ylab(c.y) + " m";
+      }
+    } else if (L) {
+      const dir = S.side > 0 ? -1 : +1;
+      phase = "Bereit"; showPass(S.passes.length + 1, L.y, dir, L.rep);
+      cls = "s-start"; txt = "Start P" + pad(S.passes.length + 1); sub = "x = " + xlab(S.side) + ", y = " + ylab(L.y) + " m";
+      const last = S.passes[S.passes.length - 1];
+      hint = last ? "Wechsel auf Linie y = " + ylab(L.y) + " m am Linienende x = " + (S.side > 0 ? "+" : "−") + S.cfg.len / 2 + " m."
+                  : "Am Linienende x = " + (S.side > 0 ? "+" : "−") + S.cfg.len / 2 + " m, y = " + ylab(L.y) + " m stehen. Vorher Handy-Uhr mit der Laptop-Zeit vergleichen.";
+    } else {
+      phase = "Alle Passagen fertig"; txt = "Versuch beenden"; sub = "Danach Sniffer stoppen";
+    }
+  } else {
+    phase = "Versuch beendet"; cls = "s-done"; txt = "Fertig"; sub = "Jetzt exportieren";
+  }
+  $("phase").textContent = phase;
+  b.className = cls + (flash ? " flash" : "");
+  b.innerHTML = txt + "<small>" + sub + "</small>";
+  b.disabled = ph === "done";
+  const b2 = $("main2");
+  if (b2) { b2.className = b.className; b2.innerHTML = b.innerHTML; b2.disabled = b.disabled;
+    $("undo2").disabled = S.events.length === 0; $("invalid2").disabled = !(S.cur || S.passes.length);
+    $("mPassT").textContent = ($("pnr").textContent ? $("pnr").textContent + " · " + $("py").textContent + " · " + $("pdir").textContent : phase); }
+  $("hint").textContent = hint;
+  $("undo").disabled = S.events.length === 0;
+  $("invalid").disabled = !(S.cur || S.passes.length);
+  renderTable();
+  if (typeof drawMap === "function") drawMap();
+}
+function showPass(nr, y, dir, rep) {
+  $("pnr").textContent = "P" + pad(nr);
+  $("py").textContent = "y = " + ylab(y) + " m" + (rep ? " (Wdh.)" : "");
+  const h = S.cfg.len / 2;
+  $("pdir").textContent = dir < 0 ? "x +" + h + " → −" + h + " m" : "x −" + h + " → +" + h + " m";
+}
+function renderTable() {
+  const rows = S.passes.concat(S.cur ? [S.cur] : []).slice().reverse();
+  $("tbl").innerHTML = rows.map(p => {
+    const dur = p.tE ? (p.tE - p.tS) / 1000 : null;
+    const v = dur ? (S.cfg.len + (p.dy || 0)) / dur : null;
+    const c = p.valid === false ? "inv" : (p.tE ? "ok" : "");
+    return "<tr class='" + c + "'><td>" + pad(p.nr) + "</td><td>" + ylab(p.y) + "</td><td>" + (p.dir < 0 ? "−x" : "+x") +
+      "</td><td class='num'>" + (p.tQ ? hms(p.tQ).slice(0, 10) : "") + "</td><td class='num'>" + (dur ? fmt1(dur) : "") +
+      "</td><td class='num'>" + (v ? v.toFixed(2) : "") + "</td><td>" + (p.valid === false ? (p.reason || "") : "") + "</td></tr>";
+  }).join("");
+  const ok = S.passes.filter(p => p.valid !== false && p.tE).length;
+  $("count").textContent = ok + " gültig / " + queue().length + " geplant";
+}
+function tick() {
+  const now = Date.now();
+  $("clock").textContent = hms(now);
+  const c = S.cur;
+  if (c) {
+    const el = (now - c.tS) / 1000;
+    $("tmr").textContent = fmt1(el) + " s";
+    const add = (c.dy || 0) / S.cfg.v;
+    const half = S.cfg.len / 2 / S.cfg.v + add, full = S.cfg.len / S.cfg.v + add;
+    if (c.tQ === null) $("tsoll").textContent = "Querlinie nach " + fmt1(half) + " s (Soll)";
+    else {
+      const dq = (c.tQ - c.tS) / 1000 - half;
+      $("tsoll").textContent = "Ende nach " + fmt1(full) + " s · Querlinie " + (dq >= 0 ? "+" : "") + fmt1(dq) + " s";
+    }
+  } else { $("tmr").textContent = ""; $("tsoll").textContent = ""; }
+  $("mTmr").textContent = $("tmr").textContent;
+  requestAnimationFrame(tick);
+}
+
+// ------------------------------------------------------------ Export
+function csv(rows) { return rows.map(r => r.map(x => {
+  x = x === null || x === undefined ? "" : String(x);
+  return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(",")).join("\n") + "\n"; }
+function drehbuch() {
+  const r = [["passage", "linie_y_m", "seite", "richtung", "t_S", "t_Q", "t_E", "dauer_s", "tempo_m_s",
+              "tempo_S_Q_m_s", "tempo_Q_E_m_s", "tempo_gps_m_s", "gps_punkte", "gueltig", "grund"]];
+  const h = S.cfg.len / 2, f3 = v => v ? v.toFixed(3) : "";
+  S.passes.forEach(p => {
+    const dur = p.tE ? (p.tE - p.tS) / 1000 : null;
+    const v1 = p.tQ ? h / ((p.tQ - p.tS) / 1000) : null, v2 = p.tQ && p.tE ? h / ((p.tE - p.tQ) / 1000) : null;
+    const g = gpsSpeed(p);
+    r.push([p.nr, p.y, p.y > 0 ? "Front" : "Rueckseite", p.dir < 0 ? "-x" : "+x", iso(p.tS),
+            p.tQ ? iso(p.tQ) : "", p.tE ? iso(p.tE) : "", dur ? dur.toFixed(2) : "",
+            f3(dur ? S.cfg.len / dur : null), f3(v1), f3(v2), f3(g.v), g.n, p.valid === false ? 0 : 1, p.reason || ""]);
+  });
+  return csv(r);
+}
+function gpsSpeed(p) {
+  // mittleres Tempo aus der GPS-Spur zwischen t_S und t_E: Geschwindigkeit des Empfaengers, sonst Weg/Zeit
+  const pts = (S.track || []).filter(q => q.t >= p.tS && q.t <= (p.tE || Infinity));
+  if (pts.length < 2) return { v: null, n: pts.length };
+  const sp = pts.map(q => q.spd).filter(v => v !== null && !isNaN(v));
+  if (sp.length >= pts.length / 2) return { v: sp.reduce((a, b) => a + b, 0) / sp.length, n: pts.length };
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    d += Math.hypot((b.lat - a.lat) * 111320, (b.lon - a.lon) * 111320 * Math.cos(a.lat * Math.PI / 180));
+  }
+  return { v: d / ((pts[pts.length - 1].t - pts[0].t) / 1000), n: pts.length };
+}
+function spur() {
+  const r = [["t_iso", "passage", "lat", "lon", "x_m", "y_m", "genauigkeit_m", "tempo_gps_m_s"]];
+  (S.track || []).forEach(q => {
+    let x = "", y = "";
+    if (typeof M !== "undefined" && M.lat0 !== null) { const l = ll2loc(q.lat, q.lon); x = l[0].toFixed(2); y = l[1].toFixed(2); }
+    r.push([iso(q.t), q.nr, q.lat.toFixed(7), q.lon.toFixed(7), x, y, Math.round(q.acc), q.spd === null ? "" : q.spd.toFixed(2)]);
+  });
+  return csv(r);
+}
+function soll() {
+  const r = [["t_iso", "personen", "notiz"]];
+  S.passes.filter(p => p.valid !== false && p.tQ).forEach(p =>
+    r.push([iso(p.tQ), 1, "P" + pad(p.nr) + " y=" + ylab(p.y) + " m, Richtung " + (p.dir < 0 ? "-x" : "+x")]));
+  return csv(r);
+}
+function protokoll() {
+  return csv([["t_iso", "ereignis", "passage", "linie_y_m", "grund"]].concat(
+    S.events.map(e => [iso(e.t), e.what, e.nr, e.y, e.reason || ""])));
+}
+function stamp() { const d = new Date(S.created); return iso(S.created).slice(0, 10) + "_" + pad(d.getHours()) + "-" + pad(d.getMinutes()); }
+function download(name, text) {
+  try {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  } catch (e) { showText(text); }
+}
+function showText(t) { const x = $("txt"); x.style.display = "block"; x.value = t; }
+
+// ------------------------------------------------------------ Bildschirm wach halten
+let lock = null;
+async function wake() {
+  try { if ("wakeLock" in navigator) { lock = await navigator.wakeLock.request("screen"); $("wl").textContent = "Bildschirm bleibt an"; } }
+  catch (e) { $("wl").textContent = ""; }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wake(); });
+
+// ------------------------------------------------------------ Ereignisse
+$("main").addEventListener("click", mark);
+$("main2").addEventListener("click", mark);
+$("undo2").addEventListener("click", undo);
+$("reasons2").innerHTML = $("reasons").innerHTML.replace('id="invFor"', 'id="invFor2"');
+$("invalid2").addEventListener("click", () => {
+  const r = $("reasons2"); r.classList.toggle("on");
+  const p = invTarget(); $("invFor2").textContent = p ? "Betrifft P" + pad(p.nr) + " (y = " + ylab(p.y) + " m)" : "";
+});
+document.querySelectorAll("#reasons2 button").forEach(b => b.addEventListener("click", () => invalidate(b.dataset.r)));
+$("undo").addEventListener("click", undo);
+$("invalid").addEventListener("click", () => {
+  const r = $("reasons"); r.classList.toggle("on");
+  const p = invTarget(); $("invFor").textContent = p ? "Betrifft P" + pad(p.nr) + " (y = " + ylab(p.y) + " m)" : "";
+});
+document.querySelectorAll("#reasons button").forEach(b => b.addEventListener("click", () => invalidate(b.dataset.r)));
+$("exDreh").addEventListener("click", () => download(S.cfg.name + "_Drehbuch_" + stamp() + ".csv", drehbuch()));
+$("exSoll").addEventListener("click", () => download(S.cfg.name + "_Soll_" + stamp() + ".csv", soll()));
+$("exLog").addEventListener("click", () => download(S.cfg.name + "_Protokoll_" + stamp() + ".csv", protokoll()));
+$("exSpur").addEventListener("click", () => download(S.cfg.name + "_GPS-Spur_" + stamp() + ".csv", spur()));
+$("exShow").addEventListener("click", () => showText("# Drehbuch\n" + drehbuch() + "\n# Soll\n" + soll() + "\n# Protokoll\n" + protokoll()));
+let armed = 0;
+$("reset").addEventListener("click", () => {
+  if (Date.now() - armed > 4000) { armed = Date.now(); $("resetHint").textContent = "Nochmals tippen zum Löschen (4 s)."; return; }
+  S = fresh(); save(); armed = 0; $("resetHint").textContent = "Neuer Versuch angelegt."; render();
+});
+["cName", "cLines", "cLen", "cV", "cX"].forEach(id => $(id).addEventListener("change", () => {
+  if (S.events.length) { $("resetHint").textContent = "Einstellungen gelten erst nach «Neuer Versuch»."; return; }
+  S.cfg = readCfg(); save(); render();
+}));
+// gespeicherte Einstellungen in die Felder
+(function () {
+  const c = S.cfg;
+  $("cName").value = c.name; $("cLines").value = c.lines.join(", "); $("cLen").value = c.len;
+  $("cV").value = c.v; $("cX").value = (c.x0 > 0 ? "+" : "") + c.x0;
+})();
+
+// ============================================================ Karte (swisstopo WMTS, Web-Mercator)
+const MKEY = "t014_karte_v1";
+const LAYERS = {
+  karte: { url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg", max: 18, name: "Landeskarte" },
+  luft:  { url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg", max: 19, name: "Luftbild" },
+};
+let M = (function () { try { const t = localStorage.getItem(MKEY); return t ? JSON.parse(t) : null; } catch (e) { return null; } })() ||
+  { lat0: null, lon0: null, theta: 90, layer: "karte", locked: false, view: { lat: 47.2236, lon: 8.8155, z: 16 } };
+function msave() { try { localStorage.setItem(MKEY, JSON.stringify(M)); } catch (e) {} }
+
+const TS = 256, MPD = 111320;
+const rad = d => d * Math.PI / 180;
+function wpx(lat, lon, z) {
+  const n = TS * Math.pow(2, z), s = Math.sin(rad(lat));
+  return [(lon + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n];
+}
+function unwpx(x, y, z) {
+  const n = TS * Math.pow(2, z);
+  const lon = x / n * 360 - 180;
+  const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+  return [lat, lon];
+}
+// lokales Raster: x in Gehrichtung (Peilung theta ab Nord), y = x um 90° im Gegenuhrzeigersinn (Front)
+function loc2ll(x, y) {
+  const t = rad(M.theta);
+  const E = x * Math.sin(t) - y * Math.cos(t), N = x * Math.cos(t) + y * Math.sin(t);
+  return [M.lat0 + N / MPD, M.lon0 + E / (MPD * Math.cos(rad(M.lat0)))];
+}
+function ll2loc(lat, lon) {
+  const t = rad(M.theta);
+  const E = (lon - M.lon0) * MPD * Math.cos(rad(M.lat0)), N = (lat - M.lat0) * MPD;
+  return [E * Math.sin(t) + N * Math.cos(t), -E * Math.cos(t) + N * Math.sin(t)];
+}
+// WGS84 <-> LV95 (Naeherungsformeln swisstopo, ca. 1 m)
+function toLV95(lat, lon) {
+  const p = (lat * 3600 - 169028.66) / 10000, l = (lon * 3600 - 26782.5) / 10000;
+  const E = 2600072.37 + 211455.93 * l - 10938.51 * l * p - 0.36 * l * p * p - 44.54 * l * l * l;
+  const N = 1200147.07 + 308807.95 * p + 3745.25 * l * l + 76.63 * p * p - 194.56 * l * l * p + 119.79 * p * p * p;
+  return [E, N];
+}
+function fromLV95(E, N) {
+  const y = (E - 2600000) / 1e6, x = (N - 1200000) / 1e6;
+  const l = 2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x * x - 0.0436 * y * y * y;
+  const p = 16.9023892 + 3.238272 * x - 0.270978 * y * y - 0.002528 * x * x - 0.0447 * y * y * x - 0.0140 * x * x * x;
+  return [p * 100 / 36, l * 100 / 36];
+}
+
+const mapEl = $("map"), tilesEl = $("tiles"), ovl = $("ovl");
+let W = 0, H = 0, mode = "", gps = null, gpsErr = "";
+const tileCache = new Map();
+function size() { W = mapEl.clientWidth; H = mapEl.clientHeight; }
+function scr(lat, lon) {                      // Bildschirmpunkt
+  const v = M.view, c = wpx(v.lat, v.lon, v.z), p = wpx(lat, lon, v.z);
+  return [p[0] - c[0] + W / 2, p[1] - c[1] + H / 2];
+}
+function scr2ll(sx, sy) {
+  const v = M.view, c = wpx(v.lat, v.lon, v.z);
+  return unwpx(c[0] + sx - W / 2, c[1] + sy - H / 2, v.z);
+}
+
+function drawTiles() {
+  const L = LAYERS[M.layer], v = M.view;
+  const zi = Math.max(0, Math.min(L.max, Math.round(v.z)));
+  const sc = Math.pow(2, v.z - zi);
+  const c = wpx(v.lat, v.lon, zi);
+  const left = c[0] - W / 2 / sc, top = c[1] - H / 2 / sc;
+  const x0 = Math.floor(left / TS), x1 = Math.floor((left + W / sc) / TS);
+  const y0 = Math.floor(top / TS), y1 = Math.floor((top + H / sc) / TS);
+  const want = new Set();
+  for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
+    const key = M.layer + "/" + zi + "/" + tx + "/" + ty;
+    want.add(key);
+    let img = tileCache.get(key);
+    if (!img) {
+      img = new Image(); img.decoding = "async"; img.alt = "";
+      img.onerror = () => { img.style.visibility = "hidden"; };
+      img.src = L.url.replace("{z}", zi).replace("{x}", tx).replace("{y}", ty);
+      tileCache.set(key, img); tilesEl.appendChild(img);
+    }
+    img.style.width = img.style.height = (TS * sc + 0.6) + "px";
+    img.style.transform = "translate(" + ((tx * TS - left) * sc) + "px," + ((ty * TS - top) * sc) + "px)";
+  }
+  for (const [k, img] of tileCache) if (!want.has(k)) { img.remove(); tileCache.delete(k); }
+}
+
+function svg(tag, a, txt) {
+  let s = "<" + tag;
+  for (const k in a) s += " " + k + "=\"" + a[k] + "\"";
+  return txt === undefined ? s + "/>" : s + ">" + txt + "</" + tag + ">";
+}
+function drawOverlay() {
+  let o = "";
+  const v = M.view, ppm = TS * Math.pow(2, v.z) / (40075016.686 * Math.cos(rad(v.lat)));
+  if (M.lat0 !== null) {
+    const P = (x, y) => scr(...loc2ll(x, y));
+    const h = S.cfg.len / 2, ys = S.cfg.lines, ymax = Math.max(...ys.map(Math.abs));
+    // Feld
+    const f = [P(-h - 5, -ymax - 5), P(h + 5, -ymax - 5), P(h + 5, ymax + 5), P(-h - 5, ymax + 5)];
+    o += svg("polygon", { points: f.map(q => q.join(",")).join(" "), fill: "rgba(255,255,255,.08)", stroke: "#fff", "stroke-width": 1, "stroke-dasharray": "4 4" });
+    // aktuelle Linie
+    const tgt = S.cur ? { y: S.cur.y, dir: S.cur.dir } : (nextLine() ? { y: nextLine().y, dir: S.side > 0 ? -1 : 1 } : null);
+    const labs = [];
+    ys.forEach(y => {
+      const a = P(-h, y), b = P(h, y), on = tgt && tgt.y === y;
+      o += svg("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: "#000", "stroke-width": on ? 6 : 3.5, "stroke-opacity": .55 });
+      o += svg("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: on ? "#f59e0b" : "#fff", "stroke-width": on ? 4 : 1.6 });
+      const l = P(h + 4, y);
+      if (on || labs.every(q => Math.hypot(q[0] - l[0], q[1] - l[1]) > 15)) {
+        labs.push(l);
+        o += svg("text", { x: l[0], y: l[1] + 4, fill: "#fff", stroke: "#000", "stroke-width": 3, "paint-order": "stroke",
+          "font-size": 12, "text-anchor": "middle" }, ylab(y));
+      }
+    });
+    if (tgt) {                                   // Pfeil Gehrichtung auf der aktuellen Linie
+      const a = P(-tgt.dir * 8, tgt.y), b = P(tgt.dir * 8, tgt.y);
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), L = 12;
+      o += svg("polygon", { points: [b, [b[0] - L * Math.cos(ang - .45), b[1] - L * Math.sin(ang - .45)],
+        [b[0] - L * Math.cos(ang + .45), b[1] - L * Math.sin(ang + .45)]].map(q => q.join(",")).join(" "), fill: "#f59e0b", stroke: "#000" });
+    }
+    // Querlinie
+    const q1 = P(0, -ymax - 3), q2 = P(0, ymax + 3);
+    o += svg("line", { x1: q1[0], y1: q1[1], x2: q2[0], y2: q2[1], stroke: "#c026d3", "stroke-width": 2.5, "stroke-dasharray": "8 5" });
+    // Front-Pfeil und x-Achse
+    const fr0 = P(0, 2), fr1 = P(0, 9);
+    o += svg("line", { x1: fr0[0], y1: fr0[1], x2: fr1[0], y2: fr1[1], stroke: "#22d3ee", "stroke-width": 3 });
+    o += svg("text", { x: fr1[0], y: fr1[1], fill: "#22d3ee", stroke: "#000", "stroke-width": 3, "paint-order": "stroke", "font-size": 13, "text-anchor": "middle" }, "Front");
+    const xa = P(h + 4, 0), xb = P(h + 14, 0);
+    o += svg("line", { x1: xa[0], y1: xa[1], x2: xb[0], y2: xb[1], stroke: "#fff", "stroke-width": 2 });
+    o += svg("text", { x: xb[0], y: xb[1] + 4, fill: "#fff", stroke: "#000", "stroke-width": 3, "paint-order": "stroke", "font-size": 13, "text-anchor": "middle" }, "+x");
+    // Sniffer
+    [[-0.5, "#c026d3", "BLE"], [0.5, "#7e22ce", "WLAN"]].forEach(([x, col]) => {
+      const p = P(x, 0);
+      o += svg("circle", { cx: p[0], cy: p[1], r: Math.max(5, 0.3 * ppm), fill: col, stroke: "#fff", "stroke-width": 2 });
+    });
+  }
+  // eigener Standort
+  if (gps) {
+    const p = scr(gps.lat, gps.lon);
+    o += svg("circle", { cx: p[0], cy: p[1], r: Math.max(6, gps.acc * ppm), fill: "rgba(59,130,246,.18)", stroke: "#3b82f6", "stroke-width": 1 });
+    o += svg("circle", { cx: p[0], cy: p[1], r: 7, fill: "#3b82f6", stroke: "#fff", "stroke-width": 2.5 });
+  }
+  ovl.innerHTML = o;
+}
+function drawMap() { if ($("tabMap").hidden) return; size(); drawTiles(); drawOverlay(); mapInfo(); }
+
+// ------------------------------------------------------------ Gesten
+const ptr = new Map();
+let gest = null;
+function zoomAbout(sx, sy, z) {
+  z = Math.max(8, Math.min(21, z));
+  const ll = scr2ll(sx, sy);
+  M.view.z = z;
+  const a = wpx(ll[0], ll[1], z), c = [a[0] - (sx - W / 2), a[1] - (sy - H / 2)];
+  const n = unwpx(c[0], c[1], z); M.view.lat = n[0]; M.view.lon = n[1];
+}
+function panBy(dx, dy) {
+  const c = wpx(M.view.lat, M.view.lon, M.view.z);
+  const n = unwpx(c[0] - dx, c[1] - dy, M.view.z); M.view.lat = n[0]; M.view.lon = n[1];
+}
+function rel(e) { const r = mapEl.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+mapEl.addEventListener("pointerdown", e => {
+  mapEl.setPointerCapture(e.pointerId); ptr.set(e.pointerId, rel(e));
+  gest = { t: Date.now(), start: rel(e), moved: false, n: ptr.size };
+});
+mapEl.addEventListener("pointermove", e => {
+  if (!ptr.has(e.pointerId)) return;
+  const prev = ptr.get(e.pointerId), cur = rel(e);
+  if (ptr.size === 1) {
+    panBy(cur[0] - prev[0], cur[1] - prev[1]);
+    if (gest && Math.hypot(cur[0] - gest.start[0], cur[1] - gest.start[1]) > 8) gest.moved = true;
+  } else if (ptr.size === 2) {
+    const [a, b] = [...ptr.entries()].map(([id, p]) => id === e.pointerId ? cur : p);
+    const [pa, pb] = [...ptr.values()];
+    const d0 = Math.hypot(pa[0] - pb[0], pa[1] - pb[1]), d1 = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const m0 = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2], m1 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    if (d0 > 0) zoomAbout(m0[0], m0[1], M.view.z + Math.log2(d1 / d0));
+    panBy(m1[0] - m0[0], m1[1] - m0[1]);
+    if (gest) gest.moved = true;
+  }
+  ptr.set(e.pointerId, cur); drawMap();
+});
+function up(e) {
+  if (!ptr.has(e.pointerId)) return;
+  ptr.delete(e.pointerId);
+  if (gest && !gest.moved && gest.n === 1 && ptr.size === 0 && Date.now() - gest.t < 500) tap(...rel(e));
+  if (ptr.size === 0) { gest = null; msave(); }
+}
+mapEl.addEventListener("pointerup", up);
+mapEl.addEventListener("pointercancel", up);
+mapEl.addEventListener("wheel", e => { e.preventDefault(); zoomAbout(...rel(e), M.view.z - e.deltaY * 0.002); drawMap(); msave(); }, { passive: false });
+let lastMapTap = 0;
+function tap(sx, sy) {
+  const ll = scr2ll(sx, sy);
+  if (mode === "set") { M.lat0 = ll[0]; M.lon0 = ll[1]; setMode(""); }
+  else if (mode === "dir" && M.lat0 !== null) {
+    const E = (ll[1] - M.lon0) * MPD * Math.cos(rad(M.lat0)), N = (ll[0] - M.lat0) * MPD;
+    M.theta = ((Math.atan2(E, N) * 180 / Math.PI) + 360) % 360; setMode("");
+  } else if (Date.now() - lastMapTap < 350) zoomAbout(sx, sy, M.view.z + 1);
+  lastMapTap = Date.now();
+  msave(); syncRot(); drawMap(); render();
+}
+function setMode(m) {
+  mode = M.locked ? "" : m;
+  $("mSet").classList.toggle("on", mode === "set"); $("mDir").classList.toggle("on", mode === "dir");
+  const t = { set: "Tippe auf die Mitte zwischen den Snifern", dir: "Tippe auf einen Punkt in +x-Richtung (Gehrichtung)" }[mode];
+  $("mapMode").style.display = t ? "block" : "none"; $("mapMode").textContent = t || "";
+}
+
+// ------------------------------------------------------------ Bedienelemente
+function syncRot() { $("mRot").value = M.theta; }
+function lockUi() {
+  ["mSet", "mSetGps", "mDir", "mRot", "mLvSet"].forEach(id => $(id).disabled = M.locked);
+  document.querySelectorAll(".rot button").forEach(b => b.disabled = M.locked);
+  $("mLock").textContent = M.locked ? "Raster lösen" : "Raster fixieren";
+  $("mLock").classList.toggle("on", M.locked);
+  $("mLayer").textContent = M.layer === "karte" ? "Luftbild" : "Landeskarte";
+}
+function mapInfo() {
+  let t = "";
+  if (M.lat0 !== null) {
+    const lv = toLV95(M.lat0, M.lon0);
+    t = "Sniffer-Mitte LV95 " + lv[0].toFixed(1) + " / " + lv[1].toFixed(1) + " · +x Richtung " + M.theta.toFixed(1) +
+        "° ab Nord · Front " + ((M.theta + 270) % 360).toFixed(1) + "°";
+  } else t = "Sniffer noch nicht gesetzt: «Sniffer setzen» und auf die Karte tippen, oder «Sniffer = GPS».";
+  $("mInfo").textContent = t;
+}
+$("mSet").addEventListener("click", () => setMode(mode === "set" ? "" : "set"));
+$("mDir").addEventListener("click", () => { if (M.lat0 === null) return; setMode(mode === "dir" ? "" : "dir"); });
+$("mSetGps").addEventListener("click", () => {
+  if (!gps) { $("mHint").textContent = "Noch keine GPS-Position."; return; }
+  M.lat0 = gps.lat; M.lon0 = gps.lon; msave(); drawMap(); render();
+});
+$("mRot").addEventListener("input", e => { M.theta = parseFloat(e.target.value); msave(); drawMap(); });
+document.querySelectorAll(".rot button").forEach(b => b.addEventListener("click", () => {
+  M.theta = (M.theta + parseFloat(b.dataset.d) + 360) % 360; syncRot(); msave(); drawMap();
+}));
+$("mLayer").addEventListener("click", () => {
+  M.layer = M.layer === "karte" ? "luft" : "karte";
+  for (const [, img] of tileCache) img.remove(); tileCache.clear(); lockUi(); msave(); drawMap();
+});
+$("mMe").addEventListener("click", () => { if (gps) { M.view.lat = gps.lat; M.view.lon = gps.lon; if (M.view.z < 17) M.view.z = 18; msave(); drawMap(); } });
+$("mGrid").addEventListener("click", () => { if (M.lat0 !== null) { M.view.lat = M.lat0; M.view.lon = M.lon0; M.view.z = 18; msave(); drawMap(); } });
+$("mLock").addEventListener("click", () => { M.locked = !M.locked; setMode(""); lockUi(); msave(); });
+$("mLvSet").addEventListener("click", () => {
+  const v = $("mLv").value.split(/[;,\s\/]+/).map(x => parseFloat(x)).filter(x => !isNaN(x));
+  if (v.length < 2 || v[0] < 2400000 || v[1] < 1000000) { $("mHint").textContent = "Format: E, N in LV95, z. B. 2704500.0, 1231800.0"; return; }
+  const ll = fromLV95(v[0], v[1]); M.lat0 = ll[0]; M.lon0 = ll[1];
+  M.view.lat = ll[0]; M.view.lon = ll[1]; msave(); drawMap(); render();
+});
+$("mPoles").addEventListener("click", () => {
+  if (M.lat0 === null) return;
+  const h = S.cfg.len / 2, ymax = Math.max(...S.cfg.lines.map(Math.abs));
+  const pts = [["Sniffer_Mitte", 0, 0], ["Sniffer_BLE", -0.5, 0], ["Sniffer_WLAN", 0.5, 0]];
+  S.cfg.lines.forEach(y => { pts.push(["Linie_" + y + "_minus", -h, y], ["Linie_" + y + "_plus", h, y]); });
+  pts.push(["Querlinie_minus", 0, -ymax - 3], ["Querlinie_plus", 0, ymax + 3]);
+  const r = [["punkt", "x_m", "y_m", "lat", "lon", "E_LV95", "N_LV95"]];
+  pts.forEach(([n, x, y]) => { const ll = loc2ll(x, y), lv = toLV95(...ll);
+    r.push([n, x, y, ll[0].toFixed(7), ll[1].toFixed(7), lv[0].toFixed(2), lv[1].toFixed(2)]); });
+  r.push(["Ausrichtung_x_grad_ab_Nord", M.theta, "", "", "", "", ""]);
+  download(S.cfg.name + "_Pfahlliste.csv", csv(r));
+});
+
+// ------------------------------------------------------------ eigener Standort
+function gpsLine() {
+  let t = "GPS: ";
+  if (gps) {
+    t += "±" + Math.round(gps.acc) + " m";
+    if (M.lat0 !== null) {
+      const [x, y] = ll2loc(gps.lat, gps.lon);
+      t = "GPS x " + (x >= 0 ? "+" : "") + x.toFixed(1) + " m · y " + (y >= 0 ? "+" : "") + y.toFixed(1) + " m · ±" + Math.round(gps.acc) + " m";
+    }
+    if (Date.now() - gps.t > 15000) t += " (alt)";
+  } else t += gpsErr || "wartet auf Position …";
+  $("gpsLine").textContent = t;
+}
+function startGps() {
+  if (!("geolocation" in navigator)) { gpsErr = "nicht verfügbar"; gpsLine(); return; }
+  navigator.geolocation.watchPosition(p => {
+    const first = !gps;
+    gps = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() };
+    gpsErr = "";
+    if (S.cur) {                              // GPS-Spur waehrend einer Passage speichern
+      S.track = S.track || [];
+      S.track.push({ t: p.timestamp || Date.now(), nr: S.cur.nr, lat: gps.lat, lon: gps.lon, acc: gps.acc,
+                     spd: (p.coords.speed === null || p.coords.speed === undefined) ? null : p.coords.speed });
+      save();
+    }
+    if (first && M.lat0 === null) { M.view.lat = gps.lat; M.view.lon = gps.lon; M.view.z = 18; }
+    gpsLine(); drawMap();
+  }, err => {
+    gpsErr = err.code === 1 ? (window.isSecureContext ? "keine Berechtigung: Standort für Chrome und diese Seite erlauben"
+                                                  : "von Chrome gesperrt: Seite ist kein sicherer Ursprung (" + location.protocol + ")")
+                            : err.code === 2 ? "kein Signal" : "Zeitüberschreitung, wartet weiter";
+    gpsLine();
+  }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 30000 });
+}
+setInterval(gpsLine, 2000);
+
+// ------------------------------------------------------------ Reiter
+function showTab(m) {
+  if (m && M.lat0 === null) $("mSetup").open = true;
+  $("tabMap").hidden = !m; $("tabMarks").hidden = m;
+  $("tbMap").classList.toggle("on", m); $("tbMarks").classList.toggle("on", !m);
+  if (m) requestAnimationFrame(drawMap);
+}
+$("tbMarks").addEventListener("click", () => showTab(false));
+$("tbMap").addEventListener("click", () => showTab(true));
+window.addEventListener("resize", drawMap);
+
+syncRot(); lockUi(); startGps();
+wake(); render(); tick();
+</script>
+</body>
+</html>
