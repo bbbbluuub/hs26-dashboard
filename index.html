@@ -242,8 +242,6 @@
         /* MODUL HINZUFÜGEN (Kachel am Ende des Rasters) */
         .moodle-btn { display:inline-flex; align-items:center; gap:4px; background:#f97316; color:#fff !important; text-decoration:none; font-size:0.72rem; font-weight:700; padding:2px 9px; border-radius:999px; }
         .moodle-btn:hover { background:#ea580c; }
-        .card.has-folder { cursor: pointer; }
-        .card.has-folder:hover { box-shadow: 0 4px 12px rgba(37,99,235,0.18); }
         .add-tile { border: 2px dashed #cbd5e1; border-radius: 12px; background: transparent; color: #64748b; font: inherit; font-weight: 600; font-size: 0.95rem; min-height: 120px; cursor: pointer; transition: 0.2s; }
         .add-tile:hover, .add-tile:focus-visible { border-color: var(--primary); color: var(--primary); background: #eff6ff; outline: none; }
         .nav-ico { display: none; }
@@ -575,10 +573,6 @@
                     <input type="text" id="editImgUrl" placeholder="oder Bild-URL einfügen" style="flex:1; min-width:140px;" onchange="editImage = { imageId: '', imageUrl: this.value.trim() }; showEditImage(); this.value='';">
                     <span id="editImgStatus" style="font-size:0.8rem; color:#64748b;"></span>
                 </div>
-            </div>
-            <div class="edit-row">
-                <label>Ordner-Link (öffnet sich per Klick auf die Kachel)</label>
-                <input type="text" id="editFolderUrl" placeholder="https://… (OneDrive, SharePoint, Drive) oder obsidian://…" autocapitalize="off" autocorrect="off" spellcheck="false">
             </div>
             <div class="edit-row">
                 <label>Moodle-Link (eigener Knopf auf der Kachel)</label>
@@ -1169,7 +1163,6 @@
         else obj.prepSlider = parseInt(obj.prepSlider); 
         obj.imageUrl = obj.imageUrl || "";
         obj.imageId = obj.imageId || "";
-        obj.folderUrl = obj.folderUrl || "";
         obj.moodleUrl = obj.moodleUrl || "";
         obj.updatedAt = s.updatedAt || 1;
         if (obj.examType === undefined) obj.examType = "closed";
@@ -2347,28 +2340,6 @@
         if (window.claude && window.claude.use) window.claude.use('assets').then(a => { assetsApi = a; }).catch(() => {});
     }
 
-    // --- ORDNER-LINK ---
-    function openModuleFolder(id) {
-        const sub = subjects.find(x => x.id === id);
-        if (!sub || !sub.folderUrl) return;
-        const u = sub.folderUrl;
-        if (/^([a-z]:[\\/]|\\\\|file:|\/|~)/i.test(u)) {
-            // Lokale Pfade kann der Browser nicht öffnen: Pfad kopieren (in Explorer-Adressleiste einfügen)
-            const path = u.replace(/^file:\/\/\/?/i, '').replace(/\//g, '\\');
-            const done = () => notify('Lokaler Pfad kopiert: in die Adressleiste des Explorers einfügen (Strg+V, Enter).');
-            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(path).then(done, () => notify('Kopieren nicht möglich: ' + path));
-            else notify(path);
-            return;
-        }
-        window.open(u, '_blank', 'noopener');
-    }
-    document.addEventListener('click', function (e) {
-        const card = e.target.closest && e.target.closest('.card.has-folder');
-        if (!card) return;
-        if (e.target.closest('input, button, select, textarea, a, .icon-btn, .task-pill, .tool-box, .card-footer, .date-row')) return;
-        openModuleFolder(parseInt(card.dataset.sid, 10));
-    });
-
     // --- EDIT LOGIC ---
     let currentEditId = null;
     function openEditModal(id) {
@@ -2378,7 +2349,6 @@
         document.getElementById('editGroup').value = sub.group || '';
         editImage = { imageId: sub.imageId || '', imageUrl: sub.imageUrl || '' };
         showEditImage();
-        document.getElementById('editFolderUrl').value = sub.folderUrl || '';
         document.getElementById('editMoodleUrl').value = sub.moodleUrl || '';
         document.getElementById('editTotalECTS').value = sub.totalECTS;
         document.getElementById('editWeight').value = Math.round(sub.weight * 100);
@@ -2402,10 +2372,6 @@
         sub.imageId = editImage.imageId;
         sub.imageUrl = editImage.imageId ? '' : editImage.imageUrl;
         if (oldImageId && oldImageId !== sub.imageId) deleteAsset(oldImageId);
-        let fu = document.getElementById('editFolderUrl').value.trim();
-        if (fu && !/^([a-z][a-z0-9+.-]*:|\\\\|\/|~)/i.test(fu)) fu = 'https://' + fu;
-        if (/^(javascript|data|vbscript):/i.test(fu)) fu = '';
-        sub.folderUrl = fu;
         let mu = document.getElementById('editMoodleUrl').value.trim();
         if (mu && !/^[a-z][a-z0-9+.-]*:/i.test(mu)) mu = 'https://' + mu;
         if (/^(javascript|data|vbscript):/i.test(mu)) mu = '';
@@ -2554,14 +2520,14 @@
             const disableDocs = (sub.examType === 'closed' || sub.examType === 'provided' || sub.examType === 'none');
 
             const html = `
-            <div class="card ${isPriority ? 'priority-1' : ''}${sub.folderUrl ? ' has-folder' : ''}" id="card-${sub.id}" data-sid="${sub.id}">
+            <div class="card ${isPriority ? 'priority-1' : ''}" id="card-${sub.id}">
                 ${imgHtml}
                 <div class="card-header">
                     ${groupIndicator}
                     <div class="header-top">
                         <div class="card-title">${sub.name}</div>
                         <div class="card-actions">
-                            ${sub.folderUrl ? '<div class="icon-btn folder" title="Ordner öffnen" onclick="openModuleFolder('+sub.id+')">📁</div>' : ''}<div class="icon-btn edit" onclick="openEditModal(${sub.id})">✎</div>
+                            <div class="icon-btn edit" onclick="openEditModal(${sub.id})">✎</div>
                             <div class="icon-btn del" onclick="deleteSubject(${sub.id})">&times;</div>
                         </div>
                     </div>
