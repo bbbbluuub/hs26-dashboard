@@ -2351,7 +2351,16 @@
     function openModuleFolder(id) {
         const sub = subjects.find(x => x.id === id);
         if (!sub || !sub.folderUrl) return;
-        window.open(sub.folderUrl, '_blank', 'noopener');
+        const u = sub.folderUrl;
+        if (/^([a-z]:[\\/]|\\\\|file:|\/|~)/i.test(u)) {
+            // Lokale Pfade kann der Browser nicht öffnen: Pfad kopieren (in Explorer-Adressleiste einfügen)
+            const path = u.replace(/^file:\/\/\/?/i, '').replace(/\//g, '\\');
+            const done = () => notify('Lokaler Pfad kopiert: in die Adressleiste des Explorers einfügen (Strg+V, Enter).');
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(path).then(done, () => notify('Kopieren nicht möglich: ' + path));
+            else notify(path);
+            return;
+        }
+        window.open(u, '_blank', 'noopener');
     }
     document.addEventListener('click', function (e) {
         const card = e.target.closest && e.target.closest('.card.has-folder');
@@ -2394,7 +2403,7 @@
         sub.imageUrl = editImage.imageId ? '' : editImage.imageUrl;
         if (oldImageId && oldImageId !== sub.imageId) deleteAsset(oldImageId);
         let fu = document.getElementById('editFolderUrl').value.trim();
-        if (fu && !/^[a-z][a-z0-9+.-]*:/i.test(fu)) fu = 'https://' + fu;
+        if (fu && !/^([a-z][a-z0-9+.-]*:|\\\\|\/|~)/i.test(fu)) fu = 'https://' + fu;
         if (/^(javascript|data|vbscript):/i.test(fu)) fu = '';
         sub.folderUrl = fu;
         let mu = document.getElementById('editMoodleUrl').value.trim();
