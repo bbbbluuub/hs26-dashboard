@@ -240,6 +240,8 @@
         .img-drop img { width: 100%; height: 100px; object-fit: cover; border-radius: 4px; }
 
         /* MODUL HINZUFÜGEN (Kachel am Ende des Rasters) */
+        .moodle-btn { display:inline-flex; align-items:center; gap:4px; background:#f97316; color:#fff !important; text-decoration:none; font-size:0.72rem; font-weight:700; padding:2px 9px; border-radius:999px; }
+        .moodle-btn:hover { background:#ea580c; }
         .card.has-folder { cursor: pointer; }
         .card.has-folder:hover { box-shadow: 0 4px 12px rgba(37,99,235,0.18); }
         .add-tile { border: 2px dashed #cbd5e1; border-radius: 12px; background: transparent; color: #64748b; font: inherit; font-weight: 600; font-size: 0.95rem; min-height: 120px; cursor: pointer; transition: 0.2s; }
@@ -577,6 +579,10 @@
             <div class="edit-row">
                 <label>Ordner-Link (öffnet sich per Klick auf die Kachel)</label>
                 <input type="text" id="editFolderUrl" placeholder="https://… (OneDrive, SharePoint, Drive) oder obsidian://…" autocapitalize="off" autocorrect="off" spellcheck="false">
+            </div>
+            <div class="edit-row">
+                <label>Moodle-Link (eigener Knopf auf der Kachel)</label>
+                <input type="text" id="editMoodleUrl" placeholder="https://moodle.ost.ch/course/view.php?id=…" autocapitalize="off" autocorrect="off" spellcheck="false">
             </div>
             <div style="display:flex; gap:10px;">
                 <div class="edit-row" style="flex:1">
@@ -1164,6 +1170,7 @@
         obj.imageUrl = obj.imageUrl || "";
         obj.imageId = obj.imageId || "";
         obj.folderUrl = obj.folderUrl || "";
+        obj.moodleUrl = obj.moodleUrl || "";
         obj.updatedAt = s.updatedAt || 1;
         if (obj.examType === undefined) obj.examType = "closed";
         if (obj.examMaterials === undefined) obj.examMaterials = "";
@@ -2363,6 +2370,7 @@
         editImage = { imageId: sub.imageId || '', imageUrl: sub.imageUrl || '' };
         showEditImage();
         document.getElementById('editFolderUrl').value = sub.folderUrl || '';
+        document.getElementById('editMoodleUrl').value = sub.moodleUrl || '';
         document.getElementById('editTotalECTS').value = sub.totalECTS;
         document.getElementById('editWeight').value = Math.round(sub.weight * 100);
         document.getElementById('editSeriesTotal').value = sub.series.total;
@@ -2389,6 +2397,10 @@
         if (fu && !/^[a-z][a-z0-9+.-]*:/i.test(fu)) fu = 'https://' + fu;
         if (/^(javascript|data|vbscript):/i.test(fu)) fu = '';
         sub.folderUrl = fu;
+        let mu = document.getElementById('editMoodleUrl').value.trim();
+        if (mu && !/^[a-z][a-z0-9+.-]*:/i.test(mu)) mu = 'https://' + mu;
+        if (/^(javascript|data|vbscript):/i.test(mu)) mu = '';
+        sub.moodleUrl = mu;
         sub.totalECTS = parseFloat(document.getElementById('editTotalECTS').value) || 0;
         let wIn = parseFloat(document.getElementById('editWeight').value);
         if(isNaN(wIn)) wIn = 100;
@@ -2545,6 +2557,7 @@
                         </div>
                     </div>
                     <div class="meta-badges">
+                        ${sub.moodleUrl ? '<a class="moodle-btn" href="' + esc(sub.moodleUrl) + '" target="_blank" rel="noopener">🎓 Moodle</a>' : ''}
                         ${groupBadge}
                         <span class="ects-pill">${displayEcts} ECTS</span>
                         ${taskBadge}
