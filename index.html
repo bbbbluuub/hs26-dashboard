@@ -1164,6 +1164,7 @@
         obj.imageUrl = obj.imageUrl || "";
         obj.imageId = obj.imageId || "";
         obj.moodleUrl = obj.moodleUrl || "";
+        if (!obj.moodleUrl && /moodle/i.test(obj.folderUrl || "")) { obj.moodleUrl = obj.folderUrl; obj.folderUrl = ""; }
         obj.updatedAt = s.updatedAt || 1;
         if (obj.examType === undefined) obj.examType = "closed";
         if (obj.examMaterials === undefined) obj.examMaterials = "";
