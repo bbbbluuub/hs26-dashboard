@@ -202,7 +202,7 @@
     <label for="cName">Bezeichnung</label>
     <input id="cName" value="GTS-Basistest">
     <label for="cLines">Linien y in m, in Gehreihenfolge</label>
-    <input id="cLines" value="3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3">
+    <input id="cLines" value="3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10">
     <label for="cLen">Linienlänge in m · Soll-Tempo in m/s</label>
     <div class="row" style="flex-wrap:nowrap">
       <input id="cLen" value="30" inputmode="decimal">
@@ -223,7 +223,7 @@
 <script>
 "use strict";
 // ------------------------------------------------------------ Zustand
-const KEY = "gtsbasis_marken_v1";
+const KEY = "gtsbasis_marken_v2";
 let S = load();
 if (!S || !["pass", "done"].includes(S.phase)) S = fresh();
 
@@ -392,7 +392,7 @@ function render(flash) {
       phase = "Bereit"; showPass(S.passes.length + 1, L.y, dir, L.rep);
       cls = "s-start"; txt = "Start P" + pad(S.passes.length + 1); sub = "x = " + xlab(S.side) + ", y = " + ylab(L.y) + " m";
       const last = S.passes[S.passes.length - 1];
-      hint = last ? "Am Linienende x = " + (S.side > 0 ? "+" : "−") + S.cfg.len / 2 + " m: Geräte senden wieder? Dann Start."
+      hint = last ? (last.y !== L.y ? "NEUE LINIE: auf y = " + ylab(L.y) + " m wechseln (x = " + (S.side > 0 ? "+" : "−") + S.cfg.len / 2 + " m). " : "Am Linienende x = " + (S.side > 0 ? "+" : "−") + S.cfg.len / 2 + " m. ") + "Geräte senden wieder? Dann Start."
                   : "Am Linienende x = " + (S.side > 0 ? "+" : "−") + S.cfg.len / 2 + " m, y = " + ylab(L.y) + " m stehen. Handy-Uhr mit Laptop verglichen? Alle Geräte BLE an, nRF-Advertiser läuft?";
     } else {
       phase = "Alle Passagen fertig"; txt = "Versuch beenden"; sub = "Danach Sniffer stoppen";
